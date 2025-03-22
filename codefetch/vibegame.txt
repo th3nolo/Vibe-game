@@ -618,7 +618,7 @@ tsconfig.json
 2 |   "compilerOptions": {
 3 |     "target": "ES2020",
 4 |     "module": "commonjs",
-5 |     "lib": ["ES2020", "es2017.sharedmemory", "dom"],
+5 |     "lib": ["ES2020", "ES2017.SharedMemory", "dom"],
 6 |     "outDir": "./dist",
 7 |     "rootDir": ".",
 8 |     "strict": true,
@@ -783,6 +783,11 @@ src/interfaces.ts
 119 |   ITEM_PICKUP = 'ITEM_PICKUP',
 120 |   ITEM_DROP = 'ITEM_DROP'
 121 | } 
+122 | 
+123 | export interface IProceduralGenerator {
+124 |   init(): Promise<void>;
+125 |   generateSpawnPoints(numPoints: number, seed: number): Position[];
+126 | }
 ```
 
 src/config/constants.ts
@@ -1090,6 +1095,89 @@ src/server/server.ts
 117 | } 
 ```
 
+src/wasm/proceduralGenerator.ts
+```
+1 | import fs from 'fs';
+2 | import path from 'path';
+3 | import { IProceduralGenerator, Position } from '../interfaces';
+4 | 
+5 | export class ProceduralGenerator implements IProceduralGenerator {
+6 |     private instance: WebAssembly.Instance | null = null;
+7 | 
+8 |     async init(): Promise<void> {
+9 |         const wasmPath = path.resolve(__dirname, 'lobby_generator.wasm');
+10 |         const wasmBuffer = fs.readFileSync(wasmPath);
+11 |         const module = await WebAssembly.compile(wasmBuffer);
+12 |         this.instance = await WebAssembly.instantiate(module);
+13 |     }
+14 | 
+15 |     generateSpawnPoints(numPoints: number, seed: number): Position[] {
+16 |         if (!this.instance) throw new Error('WASM module not initialized');
+17 | 
+18 |         const exports = this.instance.exports;
+19 | 
+20 |         // Access the function with the underscore prefix
+21 |         const generate_spawn_points = exports['_generate_spawn_points'] as (
+22 |             offset: number,
+23 |             numPoints: number,
+24 |             seed: number
+25 |         ) => void;
+26 |         if (typeof generate_spawn_points !== 'function') {
+27 |             throw new Error('generate_spawn_points is not a function');
+28 |         }
+29 | 
+30 |         const memory = exports.memory;
+31 |         if (!(memory instanceof WebAssembly.Memory)) {
+32 |             throw new Error('memory is not a WebAssembly.Memory');
+33 |         }
+34 | 
+35 |         const offset = 1024; // Temporary fixed offset
+36 |         const buffer = new Float32Array(memory.buffer, offset, numPoints * 3);
+37 | 
+38 |         // Call the WebAssembly function
+39 |         generate_spawn_points(offset, numPoints, seed);
+40 | 
+41 |         const positions: Position[] = [];
+42 |         for (let i = 0; i < numPoints; i++) {
+43 |             positions.push({
+44 |                 x: buffer[i * 3],
+45 |                 y: buffer[i * 3 + 1],
+46 |                 z: buffer[i * 3 + 2]
+47 |             });
+48 |         }
+49 |         return positions;
+50 |     }
+51 | }
+```
+
+src/wasm/procedural_generator.cpp
+```
+1 | #include <cstdlib>
+2 | 
+3 | // Simple heightmap generator for lobby layouts
+4 | extern "C"
+5 | {
+6 |     void generate_heightmap(int *buffer, int size, int seed)
+7 |     {
+8 |         for (int i = 0; i < size; i++)
+9 |         {
+10 |             buffer[i] = (i * seed) % 256; // Placeholder for Perlin noise or similar
+11 |         }
+12 |     }
+13 | 
+14 |     void generate_spawn_points(float *buffer, int num_points, int seed)
+15 |     {
+16 |         srand(seed);
+17 |         for (int i = 0; i < num_points; i++)
+18 |         {
+19 |             buffer[3 * i] = static_cast<float>(rand() % 100);     // x: 0-99
+20 |             buffer[3 * i + 1] = static_cast<float>(rand() % 100); // y: 0-99
+21 |             buffer[3 * i + 2] = 0.0f;                             // z: 0 (2D plane)
+22 |         }
+23 |     }
+24 | }
+```
+
 src/utils/helpers.ts
 ```
 1 | import { Position } from '../interfaces';
@@ -1241,167 +1329,120 @@ src/utils/logger.ts
 54 | } 
 ```
 
-src/wasm/proceduralGenerator.ts
-```
-1 | /// <reference lib="webassembly" />
-2 | import fs from 'fs';
-3 | import path from 'path';
-4 | import { Position } from '../interfaces';
-5 | 
-6 | /**
-7 |  * Manages procedural generation using WASM
-8 |  */
-9 | export class ProceduralGenerator {
-10 |     private instance: WebAssembly.Instance | null = null;
-11 | 
-12 |     async init(): Promise<void> {
-13 |         const wasmPath = path.resolve(__dirname, 'lobby_generator.wasm');
-14 |         const wasmBuffer = fs.readFileSync(wasmPath);
-15 |         const module = await WebAssembly.compile(wasmBuffer);
-16 |         this.instance = await WebAssembly.instantiate(module);
-17 |     }
-18 | 
-19 |     generateSpawnPoints(numPoints: number, seed: number): Position[] {
-20 |         if (!this.instance) throw new Error('WASM module not initialized');
-21 |         const buffer = new Float32Array(numPoints * 3);
-22 |         const { generate_spawn_points } = this.instance.exports as any;
-23 |         generate_spawn_points(buffer.byteOffset, numPoints, seed);
-24 |         const positions: Position[] = [];
-25 |         for (let i = 0; i < numPoints; i++) {
-26 |             positions.push({
-27 |                 x: buffer[3*i],
-28 |                 y: buffer[3*i+1],
-29 |                 z: buffer[3*i+2]
-30 |             });
-31 |         }
-32 |         return positions;
-33 |     }
-34 | } 
-```
-
-src/wasm/procedural_generator.cpp
-```
-1 | #include <cstdlib>
-2 | 
-3 | // Simple heightmap generator for lobby layouts
-4 | extern "C"
-5 | {
-6 |     void generate_heightmap(int *buffer, int size, int seed)
-7 |     {
-8 |         for (int i = 0; i < size; i++)
-9 |         {
-10 |             buffer[i] = (i * seed) % 256; // Placeholder for Perlin noise or similar
-11 |         }
-12 |     }
-13 | 
-14 |     void generate_spawn_points(float *buffer, int num_points, int seed)
-15 |     {
-16 |         srand(seed);
-17 |         for (int i = 0; i < num_points; i++)
-18 |         {
-19 |             buffer[3 * i] = static_cast<float>(rand() % 100);     // x: 0-99
-20 |             buffer[3 * i + 1] = static_cast<float>(rand() % 100); // y: 0-99
-21 |             buffer[3 * i + 2] = 0.0f;                             // z: 0 (2D plane)
-22 |         }
-23 |     }
-24 | }
-```
-
 tests/core/lobbyManager.test.ts
 ```
-1 | import { LobbyManager } from '../../src/core/lobby/lobbyManager';
-2 | import { Player } from '../../src/core/game/player';
-3 | import { Position, LobbyStatus } from '../../src/interfaces';
-4 | 
-5 | describe('LobbyManager', () => {
-6 |   let lobbyManager: LobbyManager;
-7 |   let testPlayer: Player;
-8 | 
-9 |   beforeEach(() => {
-10 |     lobbyManager = new LobbyManager(2); // Max 2 players per lobby for testing
-11 |     const spawnPoint: Position = { x: 0, y: 0, z: 0 };
-12 |     testPlayer = new Player('test_player', spawnPoint);
-13 |   });
-14 | 
-15 |   describe('createLobby', () => {
-16 |     it('should create a new lobby with correct initial state', () => {
-17 |       const lobbyId = lobbyManager.createLobby();
-18 |       const lobby = lobbyManager.getLobbyState(lobbyId);
-19 | 
-20 |       expect(lobby).toBeDefined();
-21 |       expect(lobby?.id).toBe(lobbyId);
-22 |       expect(lobby?.players.size).toBe(0);
-23 |       expect(lobby?.maxPlayers).toBe(2);
-24 |     });
-25 |   });
-26 | 
-27 |   describe('joinLobby', () => {
-28 |     it('should add player to an existing lobby if space available', () => {
-29 |       const lobbyId = lobbyManager.createLobby();
-30 |       const result = lobbyManager.joinLobby(testPlayer);
-31 | 
-32 |       expect(result).toBe(lobbyId);
-33 |       const lobby = lobbyManager.getLobbyState(lobbyId);
-34 |       expect(lobby?.players.get(testPlayer.id)).toBe(testPlayer);
-35 |     });
+1 | import { jest } from '@jest/globals';
+2 | import { LobbyManager } from '../../src/core/lobby/lobbyManager';
+3 | import { Player } from '../../src/core/game/player';
+4 | import { Position, LobbyStatus, IProceduralGenerator } from '../../src/interfaces';
+5 | 
+6 | jest.mock('worker_threads', () => ({
+7 |   Worker: jest.fn().mockImplementation(() => ({
+8 |     postMessage: jest.fn(),
+9 |     on: jest.fn(),
+10 |     terminate: jest.fn(),
+11 |   })),
+12 | }));
+13 | 
+14 | class MockProceduralGenerator implements IProceduralGenerator {
+15 |   async init(): Promise<void> {}
+16 |   generateSpawnPoints(numPoints: number, seed: number): Position[] {
+17 |     return Array.from({ length: numPoints }, (_, i) => ({
+18 |       x: (i * 10) % 100,
+19 |       y: 0,
+20 |       z: 0,
+21 |     }));
+22 |   }
+23 | }
+24 | 
+25 | describe('LobbyManager', () => {
+26 |   let lobbyManager: LobbyManager;
+27 |   let testPlayer: Player;
+28 | 
+29 |   beforeEach(async () => {
+30 |     const mockGenerator = new MockProceduralGenerator();
+31 |     await mockGenerator.init();
+32 |     lobbyManager = new LobbyManager(2, mockGenerator);
+33 |     const spawnPoint: Position = { x: 0, y: 0, z: 0 };
+34 |     testPlayer = new Player('test_player', spawnPoint);
+35 |   });
 36 | 
-37 |     it('should create new lobby if no space in existing lobbies', () => {
-38 |       const lobbyId = lobbyManager.createLobby();
-39 |       const player1 = new Player('player1', { x: 0, y: 0, z: 0 });
-40 |       const player2 = new Player('player2', { x: 0, y: 0, z: 0 });
-41 |       const player3 = new Player('player3', { x: 0, y: 0, z: 0 });
-42 | 
-43 |       lobbyManager.joinLobby(player1);
-44 |       lobbyManager.joinLobby(player2);
-45 |       const newLobbyId = lobbyManager.joinLobby(player3);
-46 | 
-47 |       expect(newLobbyId).not.toBe(lobbyId);
-48 |       const newLobby = lobbyManager.getLobbyState(newLobbyId);
-49 |       expect(newLobby?.players.get(player3.id)).toBe(player3);
-50 |     });
-51 |   });
-52 | 
-53 |   describe('leaveLobby', () => {
-54 |     it('should remove player from lobby', () => {
-55 |       const testPlayer = { id: 'player1', position: { x: 0, y: 0, z: 0 }, health: 100, level: 1, inventory: [] };
-56 |       const lobbyId = lobbyManager.joinLobby(testPlayer);
-57 |       lobbyManager.leaveLobby(testPlayer.id, lobbyId);
-58 |       const lobby = lobbyManager.getLobbyState(lobbyId);
-59 |       expect(lobby?.players.has(testPlayer.id) || false).toBe(false);
-60 |     });
-61 | 
-62 |     it('should delete empty lobby', () => {
-63 |       const lobbyId = lobbyManager.createLobby();
-64 |       lobbyManager.joinLobby(testPlayer);
-65 |       lobbyManager.leaveLobby(testPlayer.id, lobbyId);
-66 | 
-67 |       const lobby = lobbyManager.getLobbyState(lobbyId);
-68 |       expect(lobby).toBeUndefined();
-69 |     });
-70 |   });
-71 | 
-72 |   describe('updateLobbyStatus', () => {
-73 |     it('should update lobby status', () => {
-74 |       const lobbyId = lobbyManager.createLobby();
-75 |       lobbyManager.updateLobbyStatus(lobbyId, LobbyStatus.IN_PROGRESS);
-76 | 
-77 |       const lobby = lobbyManager.getLobbyState(lobbyId);
-78 |       expect(lobby?.status).toBe(LobbyStatus.IN_PROGRESS);
-79 |     });
-80 |   });
-81 | 
-82 |   describe('getActiveLobbies', () => {
-83 |     it('should return all active lobbies', () => {
-84 |       const lobby1Id = lobbyManager.createLobby();
-85 |       const lobby2Id = lobbyManager.createLobby();
-86 |       const activeLobbies = lobbyManager.getActiveLobbies();
-87 | 
-88 |       expect(activeLobbies.length).toBe(2);
-89 |       expect(activeLobbies.map(l => l.id)).toContain(lobby1Id);
-90 |       expect(activeLobbies.map(l => l.id)).toContain(lobby2Id);
-91 |     });
-92 |   });
-93 | }); 
+37 |   describe('createLobby', () => {
+38 |     it('should create a new lobby with correct initial state', () => {
+39 |       const lobbyId = lobbyManager.createLobby();
+40 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+41 |       expect(lobby).toBeDefined();
+42 |       expect(lobby?.id).toBe(lobbyId);
+43 |       expect(lobby?.players.size).toBe(0);
+44 |       expect(lobby?.maxPlayers).toBe(2);
+45 |     });
+46 |   });
+47 | 
+48 |   describe('joinLobby', () => {
+49 |     it('should add player to an existing lobby if space available', () => {
+50 |       const lobbyId = lobbyManager.createLobby();
+51 |       const result = lobbyManager.joinLobby(testPlayer);
+52 |       expect(result).toBe(lobbyId);
+53 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+54 |       expect(lobby?.players.get(testPlayer.id)).toBe(testPlayer);
+55 |     });
+56 | 
+57 |     it('should create new lobby if no space in existing lobbies', () => {
+58 |       const lobbyId = lobbyManager.createLobby();
+59 |       const player1 = new Player('player1', { x: 0, y: 0, z: 0 });
+60 |       const player2 = new Player('player2', { x: 0, y: 0, z: 0 });
+61 |       const player3 = new Player('player3', { x: 0, y: 0, z: 0 });
+62 |       lobbyManager.joinLobby(player1);
+63 |       lobbyManager.joinLobby(player2);
+64 |       const newLobbyId = lobbyManager.joinLobby(player3);
+65 |       expect(newLobbyId).not.toBe(lobbyId);
+66 |       const newLobby = lobbyManager.getLobbyState(newLobbyId);
+67 |       expect(newLobby?.players.get(player3.id)).toBe(player3);
+68 |     });
+69 |   });
+70 | 
+71 |   describe('leaveLobby', () => {
+72 |     it('should remove player from lobby', () => {
+73 |       const player = new Player('player1', { x: 0, y: 0, z: 0 });
+74 |       const extraPlayer = new Player('extra', { x: 0, y: 0, z: 0 });
+75 |       const lobbyId = lobbyManager.joinLobby(player);
+76 |       lobbyManager.joinLobby(extraPlayer);
+77 |       lobbyManager.leaveLobby(player.id, lobbyId);
+78 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+79 |       expect(lobby).toBeDefined();
+80 |       expect(lobby!.players.has(player.id)).toBe(false);
+81 |       expect(lobby!.players.has(extraPlayer.id)).toBe(true);
+82 |     });
+83 | 
+84 |     it('should keep empty lobby alive temporarily', () => {
+85 |       const lobbyId = lobbyManager.joinLobby(testPlayer); // Use joinLobby’s return value
+86 |       lobbyManager.leaveLobby(testPlayer.id, lobbyId);
+87 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+88 |       expect(lobby).toBeDefined();
+89 |       expect(lobby!.players.size).toBe(0);
+90 |     });
+91 |   });
+92 | 
+93 |   describe('updateLobbyStatus', () => {
+94 |     it('should update lobby status', () => {
+95 |       const lobbyId = lobbyManager.createLobby();
+96 |       lobbyManager.updateLobbyStatus(lobbyId, LobbyStatus.IN_PROGRESS);
+97 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+98 |       expect(lobby?.status).toBe(LobbyStatus.IN_PROGRESS);
+99 |     });
+100 |   });
+101 | 
+102 |   describe('getActiveLobbies', () => {
+103 |     it('should return all active lobbies', () => {
+104 |       const lobby1Id = lobbyManager.createLobby();
+105 |       const lobby2Id = lobbyManager.createLobby();
+106 |       const activeLobbies = lobbyManager.getActiveLobbies();
+107 |       expect(activeLobbies.length).toBe(2);
+108 |       expect(activeLobbies.map(l => l.id)).toContain(lobby1Id);
+109 |       expect(activeLobbies.map(l => l.id)).toContain(lobby2Id);
+110 |     });
+111 |   });
+112 | });
 ```
 
 tests/core/player.test.ts
@@ -1949,117 +1990,116 @@ src/core/lobby/lobbyManager.ts
 ```
 1 | import { Worker } from 'worker_threads';
 2 | import path from 'path';
-3 | import { Lobby, LobbyStatus } from '../../interfaces';
+3 | import { IProceduralGenerator, Lobby, LobbyStatus } from '../../interfaces';
 4 | import { World } from '../game/world';
 5 | import { Player } from '../game/player';
-6 | import { ProceduralGenerator } from '../../wasm/proceduralGenerator';
-7 | 
-8 | /**
-9 |  * Manages game lobbies and player assignments
-10 |  */
-11 | export class LobbyManager {
-12 |   private readonly lobbies: Map<string, Lobby>;
-13 |   private readonly maxPlayersPerLobby: number;
-14 |   private readonly proceduralGenerator: ProceduralGenerator;
-15 | 
-16 |   constructor(maxPlayersPerLobby: number = 50, proceduralGenerator: ProceduralGenerator) {
-17 |     this.lobbies = new Map();
-18 |     this.maxPlayersPerLobby = maxPlayersPerLobby;
-19 |     this.proceduralGenerator = proceduralGenerator;
-20 |   }
-21 | 
-22 |   /**
-23 |    * Creates a new lobby
-24 |    */
-25 |   createLobby(): string {
-26 |     const id = `lobby_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-27 |     const spawnPoints = this.proceduralGenerator.generateSpawnPoints(10, Date.now());
-28 |     const world = new World(id, `World for ${id}`, spawnPoints);
-29 |     const sharedBuffer = new SharedArrayBuffer(this.maxPlayersPerLobby * 3 * 4);
-30 |     const playerPositions = new Float32Array(sharedBuffer);
-31 |     const worker = new Worker(path.resolve(__dirname, 'lobbyWorker.ts'), {
-32 |       workerData: { lobbyId: id, sharedBuffer }
-33 |     });
-34 |     
-35 |     this.lobbies.set(id, {
-36 |       id,
-37 |       world,
-38 |       players: new Map(),
-39 |       maxPlayers: this.maxPlayersPerLobby,
-40 |       status: LobbyStatus.WAITING,
-41 |       worker,
-42 |       playerPositions,
-43 |       playerIndex: new Map(),
-44 |       nextPlayerIndex: 0
-45 |     });
-46 |     return id;
-47 |   }
-48 | 
-49 |   /**
-50 |    * Assigns a player to an available lobby
-51 |    */
-52 |   joinLobby(player: Player): string {
-53 |     let lobby: Lobby | undefined;
-54 |     for (const [, l] of this.lobbies) {
-55 |       if (l.players.size < this.maxPlayersPerLobby && l.status === LobbyStatus.WAITING) {
-56 |         lobby = l;
-57 |         break;
-58 |       }
-59 |     }
-60 |     if (!lobby) {
-61 |       const newLobbyId = this.createLobby();
-62 |       lobby = this.lobbies.get(newLobbyId)!;
-63 |     }
-64 |     const index = lobby.nextPlayerIndex++;
-65 |     lobby.players.set(player.id, player);
-66 |     lobby.playerIndex.set(player.id, index);
-67 |     const spawnPoint = lobby.world.getRandomSpawnPoint();
-68 |     player.move(spawnPoint);
-69 |     lobby.playerPositions[3*index] = spawnPoint.x;
-70 |     lobby.playerPositions[3*index+1] = spawnPoint.y;
-71 |     lobby.playerPositions[3*index+2] = spawnPoint.z;
-72 |     return lobby.id;
-73 |   }
-74 | 
-75 |   /**
-76 |    * Removes a player from their lobby
-77 |    */
-78 |   leaveLobby(playerId: string, lobbyId: string): void {
-79 |     const lobby = this.lobbies.get(lobbyId);
-80 |     if (lobby) {
-81 |       lobby.players.delete(playerId);
-82 |       lobby.playerIndex.delete(playerId);
-83 |       if (lobby.players.size === 0) {
-84 |         lobby.worker.terminate();
-85 |         this.lobbies.delete(lobbyId);
-86 |       }
-87 |     }
-88 |   }
-89 | 
-90 |   /**
-91 |    * Gets the current state of a lobby
-92 |    */
-93 |   getLobbyState(lobbyId: string): Lobby | undefined {
-94 |     return this.lobbies.get(lobbyId);
-95 |   }
-96 | 
-97 |   /**
-98 |    * Updates the status of a lobby
-99 |    */
-100 |   updateLobbyStatus(lobbyId: string, status: LobbyStatus): void {
-101 |     const lobby = this.lobbies.get(lobbyId);
-102 |     if (lobby) {
-103 |       lobby.status = status;
-104 |     }
-105 |   }
-106 | 
-107 |   /**
-108 |    * Gets all active lobbies
-109 |    */
-110 |   getActiveLobbies(): Lobby[] {
-111 |     return Array.from(this.lobbies.values());
-112 |   }
-113 | } 
+6 | 
+7 | /**
+8 |  * Manages game lobbies and player assignments
+9 |  */
+10 | export class LobbyManager {
+11 |   private readonly lobbies: Map<string, Lobby>;
+12 |   private readonly maxPlayersPerLobby: number;
+13 |   private readonly proceduralGenerator: IProceduralGenerator;
+14 | 
+15 |   constructor(maxPlayersPerLobby: number = 50, proceduralGenerator: IProceduralGenerator) {
+16 |     this.lobbies = new Map();
+17 |     this.maxPlayersPerLobby = maxPlayersPerLobby;
+18 |     this.proceduralGenerator = proceduralGenerator;
+19 |   }
+20 | 
+21 |   /**
+22 |    * Creates a new lobby
+23 |    */
+24 |   createLobby(): string {
+25 |     const id = `lobby_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+26 |     const spawnPoints = this.proceduralGenerator.generateSpawnPoints(10, Date.now());
+27 |     const world = new World(id, `World for ${id}`, spawnPoints);
+28 |     const sharedBuffer = new SharedArrayBuffer(this.maxPlayersPerLobby * 3 * 4);
+29 |     const playerPositions = new Float32Array(sharedBuffer);
+30 |     const worker = new Worker(path.resolve(__dirname, 'lobbyWorker.ts'), {
+31 |       workerData: { lobbyId: id, sharedBuffer }
+32 |     });
+33 |     
+34 |     this.lobbies.set(id, {
+35 |       id,
+36 |       world,
+37 |       players: new Map(),
+38 |       maxPlayers: this.maxPlayersPerLobby,
+39 |       status: LobbyStatus.WAITING,
+40 |       worker,
+41 |       playerPositions,
+42 |       playerIndex: new Map(),
+43 |       nextPlayerIndex: 0
+44 |     });
+45 |     return id;
+46 |   }
+47 | 
+48 |   /**
+49 |    * Assigns a player to an available lobby
+50 |    */
+51 |   joinLobby(player: Player): string {
+52 |     let lobby: Lobby | undefined;
+53 |     for (const [, l] of this.lobbies) {
+54 |       if (l.players.size < this.maxPlayersPerLobby && l.status === LobbyStatus.WAITING) {
+55 |         lobby = l;
+56 |         break;
+57 |       }
+58 |     }
+59 |     if (!lobby) {
+60 |       const newLobbyId = this.createLobby();
+61 |       lobby = this.lobbies.get(newLobbyId)!;
+62 |     }
+63 |     const index = lobby.nextPlayerIndex++;
+64 |     lobby.players.set(player.id, player);
+65 |     lobby.playerIndex.set(player.id, index);
+66 |     const spawnPoint = lobby.world.getRandomSpawnPoint();
+67 |     player.move(spawnPoint);
+68 |     lobby.playerPositions[3*index] = spawnPoint.x;
+69 |     lobby.playerPositions[3*index+1] = spawnPoint.y;
+70 |     lobby.playerPositions[3*index+2] = spawnPoint.z;
+71 |     return lobby.id;
+72 |   }
+73 | 
+74 |   /**
+75 |    * Removes a player from their lobby
+76 |    */
+77 |   leaveLobby(playerId: string, lobbyId: string): void {
+78 |     const lobby = this.lobbies.get(lobbyId);
+79 |     if (lobby) {
+80 |       lobby.players.delete(playerId);
+81 |       lobby.playerIndex.delete(playerId);
+82 |       if (lobby.players.size === 0) {
+83 |         lobby.worker.terminate();
+84 |         this.lobbies.delete(lobbyId);
+85 |       }
+86 |     }
+87 |   }
+88 | 
+89 |   /**
+90 |    * Gets the current state of a lobby
+91 |    */
+92 |   getLobbyState(lobbyId: string): Lobby | undefined {
+93 |     return this.lobbies.get(lobbyId);
+94 |   }
+95 | 
+96 |   /**
+97 |    * Updates the status of a lobby
+98 |    */
+99 |   updateLobbyStatus(lobbyId: string, status: LobbyStatus): void {
+100 |     const lobby = this.lobbies.get(lobbyId);
+101 |     if (lobby) {
+102 |       lobby.status = status;
+103 |     }
+104 |   }
+105 | 
+106 |   /**
+107 |    * Gets all active lobbies
+108 |    */
+109 |   getActiveLobbies(): Lobby[] {
+110 |     return Array.from(this.lobbies.values());
+111 |   }
+112 | } 
 ```
 
 src/core/lobby/lobbyWorker.ts

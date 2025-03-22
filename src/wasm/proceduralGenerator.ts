@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { Position } from '../interfaces';
+import { IProceduralGenerator, Position } from '../interfaces';
 
-export class ProceduralGenerator {
+export class ProceduralGenerator implements IProceduralGenerator {
     private instance: WebAssembly.Instance | null = null;
 
     async init(): Promise<void> {
@@ -17,8 +17,12 @@ export class ProceduralGenerator {
 
         const exports = this.instance.exports;
 
-        // Access specific exports with runtime checks
-        const generate_spawn_points = exports.generate_spawn_points;
+        // Access the function with the underscore prefix
+        const generate_spawn_points = exports['_generate_spawn_points'] as (
+            offset: number,
+            numPoints: number,
+            seed: number
+        ) => void;
         if (typeof generate_spawn_points !== 'function') {
             throw new Error('generate_spawn_points is not a function');
         }

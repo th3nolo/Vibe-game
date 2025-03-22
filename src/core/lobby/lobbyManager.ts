@@ -1,9 +1,8 @@
 import { Worker } from 'worker_threads';
 import path from 'path';
-import { Lobby, LobbyStatus } from '../../interfaces';
+import { IProceduralGenerator, Lobby, LobbyStatus } from '../../interfaces';
 import { World } from '../game/world';
 import { Player } from '../game/player';
-import { ProceduralGenerator } from '../../wasm/proceduralGenerator';
 
 /**
  * Manages game lobbies and player assignments
@@ -11,12 +10,14 @@ import { ProceduralGenerator } from '../../wasm/proceduralGenerator';
 export class LobbyManager {
   private readonly lobbies: Map<string, Lobby>;
   private readonly maxPlayersPerLobby: number;
-  private readonly proceduralGenerator: ProceduralGenerator;
+  private readonly proceduralGenerator: IProceduralGenerator;
+  private readonly cleanupTimeouts: Map<string, NodeJS.Timeout>;
 
-  constructor(maxPlayersPerLobby: number = 50, proceduralGenerator: ProceduralGenerator) {
+  constructor(maxPlayersPerLobby: number = 50, proceduralGenerator: IProceduralGenerator) {
     this.lobbies = new Map();
     this.maxPlayersPerLobby = maxPlayersPerLobby;
-    this.proceduralGenerator = proceduralGenerator;
+    this.proceduralGenerator = proceduralGenerator; 
+    this.cleanupTimeouts = new Map();
   }
 
   /**
@@ -69,6 +70,14 @@ export class LobbyManager {
     lobby.playerPositions[3*index] = spawnPoint.x;
     lobby.playerPositions[3*index+1] = spawnPoint.y;
     lobby.playerPositions[3*index+2] = spawnPoint.z;
+  
+    // Cancel cleanup timeout if it exists
+    const timeout = this.cleanupTimeouts.get(lobby.id);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.cleanupTimeouts.delete(lobby.id);
+    }
+  
     return lobby.id;
   }
 
@@ -81,8 +90,12 @@ export class LobbyManager {
       lobby.players.delete(playerId);
       lobby.playerIndex.delete(playerId);
       if (lobby.players.size === 0) {
-        lobby.worker.terminate();
-        this.lobbies.delete(lobbyId);
+        const timeout = setTimeout(() => {
+          lobby.worker.terminate();
+          this.lobbies.delete(lobbyId);
+          this.cleanupTimeouts.delete(lobbyId);
+        }, 5 * 60 * 1000); // 5 minutes
+        this.cleanupTimeouts.set(lobbyId, timeout);
       }
     }
   }

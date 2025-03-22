@@ -119,3 +119,8 @@ export enum GameEventType {
   ITEM_PICKUP = 'ITEM_PICKUP',
   ITEM_DROP = 'ITEM_DROP'
 } 
+
+export interface IProceduralGenerator {
+  init(): Promise<void>;
+  generateSpawnPoints(numPoints: number, seed: number): Position[];
+}
