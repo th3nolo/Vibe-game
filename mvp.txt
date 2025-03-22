@@ -1,0 +1,57 @@
+# MVP Implementation Plan
+
+This file outlines the steps to implement the Minimum Viable Product (MVP) for the MMO RPG server. The goal is to validate core concepts: procedural generation, multiplayer interactions, and initial cursor/control mechanics.
+
+## Key Features to Implement
+
+1. **Lobby Instance Management**  
+   - Create and manage multiple lobby instances with a defined user limit (e.g., 50 users).  
+   - Automatically create new instances when one reaches capacity.
+
+2. **Procedural Generation**  
+   - Use WebAssembly (WASM) to generate lobby environments efficiently.  
+   - Validate that generated layouts are usable and performant.
+
+3. **Multiplayer Interactions**  
+   - Handle user connections and real-time updates (e.g., movement) using worker threads and `SharedArrayBuffer`.  
+   - Ensure updates are synchronized across connected users.
+
+4. **Cursor/Control Mechanics**  
+   - Implement basic movement or interaction mechanics (e.g., updating user positions) to simulate control input.
+
+## Step-by-Step Guide
+
+### 1. Set Up Project Structure  
+- Create the folder structure as defined in `.cursorrules`.  
+- Initialize `package.json` with dependencies: `express`, `ws`, `jest`, and others as needed.
+
+### 2. Implement Lobby Management  
+- Create `src/core/lobby/lobbyManager.js` with a `LobbyManager` class.  
+  - Add methods: `joinLobby(userId)` and `createLobby()`.  
+  - Track lobby instances and user counts.
+
+### 3. Develop Procedural Generation  
+- Write C++ code in `src/wasm/procedural_generator.cpp` for lobby layout generation.  
+- Compile to WASM using Emscripten with a script in `scripts/build_wasm.sh`.  
+- Create `src/wasm/proceduralGenerator.js` to load and call the WASM module.
+
+### 4. Set Up Worker Threads for Lobbies  
+- Implement `src/core/lobby/lobbyWorker.js` to manage lobby logic in a worker thread.  
+- Use `SharedArrayBuffer` to share lobby state (e.g., user positions) between threads.
+
+### 5. Configure Main Server  
+- Set up `src/server/server.js` with WebSocket support using the `ws` library.  
+- Route client messages to appropriate worker threads.
+
+### 6. Test the MVP  
+- Create a simple test client (e.g., a Node.js script or HTML page) to simulate multiple users.  
+- Verify:  
+  - New lobbies are created when capacity is reached.  
+  - Procedural generation works and is fast.  
+  - Users can join and see real-time position updates.
+
+## Validation Criteria  
+- **Procedural Generation**: WASM generates lobby layouts in under 1 second.  
+- **Multiplayer**: Users in the same lobby see position updates within 100ms.  
+- **Controls**: Basic movement mechanics function without errors.  
+- **Stability**: Server handles 100 simulated users without crashing.

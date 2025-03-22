@@ -1,0 +1,2090 @@
+Project Structure:
+├── Prompt.txt
+├── Research.txt
+├── codefetch
+│   └── vibegame.txt
+├── coverage
+│   └── lcov.info
+├── dist
+├── docs
+│   └── architecture.md
+├── jest.config.ts
+├── mvp.txt
+├── package.json
+├── scripts
+│   └── build_wasm.sh
+├── src
+│   ├── index.ts
+│   ├── interfaces.ts
+├── tests
+├── tsconfig.json
+└── yarn.lock
+
+
+.cursorrules.txt
+```
+1 | # .cursorrules
+2 | 
+3 | Always use Yarn for dependencies.
+4 | 
+5 | This file outlines the coding rules and best practices for the MMO RPG server project. These guidelines ensure clarity, maintainability, scalability, and performance in the codebase. They are intended for both developers and AI/LLM assistance.
+6 | 
+7 | ## General Coding Rules
+8 | 
+9 | 1. **Use WebAssembly (WASM) for CPU-Intensive Tasks**
+10 |    - Offload heavy computations (e.g., procedural generation, physics) to C++ or Rust compiled to WASM.
+11 |    - Use Emscripten to compile and integrate WASM modules with Node.js via `WebAssembly.instantiate`.
+12 | 
+13 | 2. **Leverage Worker Threads with SharedArrayBuffer**
+14 |    - Use Node.js worker threads for concurrent game logic (e.g., player updates, region events).
+15 |    - Share memory using `SharedArrayBuffer` for efficient data access across threads.
+16 | 
+17 | 3. **Maintain Thread Safety**
+18 |    - Use `Atomics` to synchronize access to shared memory and prevent race conditions.
+19 | 
+20 | 4. **Batch WASM Calls**
+21 |    - Minimize the frequency of WASM calls by batching computations (e.g., generating multiple map chunks at once).
+22 | 
+23 | 5. **Avoid Blocking the Main Thread**
+24 |    - Keep the main Node.js thread free for I/O operations (e.g., WebSocket communication).
+25 |    - Offload CPU-intensive tasks to WASM or worker threads.
+26 | 
+27 | 6. **Use Efficient Data Structures**
+28 |    - Store game state and map data in typed arrays (e.g., `Int32Array`, `Float32Array`) with `SharedArrayBuffer`.
+29 | 
+30 | 7. **Implement Scalable Architecture**
+31 |    - Design for scalability, starting with worker threads and scaling out with multiple Node.js instances if needed.
+32 | 
+33 | 8. **Monitor and Optimize Performance**
+34 |    - Regularly profile the server using tools like Node.js's `--prof` or external services.
+35 | 
+36 | 9. **Ensure Compatibility and Stability**
+37 |    - Use well-tested versions of Node.js (e.g., LTS), WASM, and libraries. Avoid experimental features.
+38 | 
+39 | 10. **Document and Comment Code**
+40 |     - Include clear comments and documentation, especially for WASM integration and worker thread logic.
+41 |     - Use JSDoc for functions and classes.
+42 | 
+43 | ## Dependency Management
+44 | 
+45 | 11. **Mandatory Yarn Usage**
+46 |     - Use Yarn exclusively for installing, updating, and managing dependencies (e.g., `yarn add`, `yarn install`).
+47 |     - Do not use npm or other package managers in this project.
+48 |     - Lock dependency versions in `yarn.lock` for consistent installations.
+49 | 
+50 | ## TypeScript Adoption
+51 | 
+52 | 12. **Use TypeScript Exclusively**
+53 |     - Write all new code in TypeScript with `.ts` file extensions.
+54 |     - Migrate existing `.js` files to `.ts` and add type annotations for parameters, return types, and variables.
+55 |     - Use TypeScript's type inference to reduce explicit annotations where possible (e.g., `const x = 5` instead of `const x: number = 5`).
+56 |     - Configure `tsconfig.json` with strict type checking enabled.
+57 | 
+58 | 13. **Define Interfaces for Abstraction**
+59 |     - Use TypeScript interfaces to define contracts for classes and modules (e.g., `interface Player { id: string; position: number }`).
+60 |     - Implement interfaces to ensure type safety and modularity.
+61 |     - Prefer interfaces over type aliases for better extensibility.
+62 | 
+63 | 14. **Type Safety Best Practices**
+64 |     - Use strict null checks and avoid `any` type.
+65 |     - Leverage union types and type guards for runtime type safety.
+66 |     - Use generics for reusable type-safe components.
+67 | 
+68 | ## Lean and Small Code
+69 | 
+70 | 15. **Minimize Code Size**
+71 |     - Avoid code duplication; refactor repeated logic into reusable functions or modules.
+72 |     - Use concise syntax (e.g., arrow functions `() => x`, optional chaining `?.`, destructuring `{ a, b }`).
+73 |     - Remove unused code, variables, or imports immediately.
+74 |     - Use short, meaningful variable names where context is clear.
+75 | 
+76 | 16. **Optimize Algorithm Efficiency**
+77 |     - Use the smallest, most efficient algorithms and data structures for tasks (e.g., `Set` for unique items, typed arrays for numeric data).
+78 |     - Implement caching strategies for frequently accessed data.
+79 |     - Use appropriate data structures for specific use cases (e.g., Map for key-value pairs).
+80 | 
+81 | ## SOLID Principles
+82 | 
+83 | 17. **Single Responsibility Principle (SRP)**
+84 |     - Ensure each class or module has one responsibility (e.g., `LobbyManager` only manages lobbies, not game logic).
+85 |     - Example: Split `server.ts` into separate I/O and logic handlers if it grows too complex.
+86 |     - Keep methods focused and small.
+87 | 
+88 | 18. **Open-Closed Principle (OCP)**
+89 |     - Design modules to be extensible without modification (e.g., use interfaces and polymorphism instead of altering base classes).
+90 |     - Example: Add new lobby types via subclasses rather than changing `LobbyManager`.
+91 |     - Use abstract classes and interfaces for extensibility.
+92 | 
+93 | 19. **Liskov Substitution Principle (LSP)**
+94 |     - Ensure subclasses can replace their base classes without breaking functionality (e.g., a `VIPPlayer` class should work wherever `Player` is expected).
+95 |     - Maintain consistent behavior across inheritance hierarchies.
+96 |     - Avoid overriding methods in ways that violate the base class contract.
+97 | 
+98 | 20. **Interface Segregation Principle (ISP)**
+99 |     - Define small, specific interfaces rather than large, general ones (e.g., separate `Movable` and `Damageable` interfaces for entities).
+100 |     - Clients should not be forced to depend on interfaces they don't use.
+101 |     - Split large interfaces into smaller, focused ones.
+102 | 
+103 | 21. **Dependency Inversion Principle (DIP)**
+104 |     - Depend on abstractions (interfaces) rather than concrete implementations (e.g., inject a `Logger` interface into classes).
+105 |     - Example: Pass dependencies via constructor injection.
+106 |     - Use dependency injection containers for managing dependencies.
+107 | 
+108 | ## LLM Token Optimization
+109 | 
+110 | 22. **Minimize Token Count**
+111 |     - Use short, meaningful variable names (e.g., `pos` instead of `playerPosition`) where readability is not compromised.
+112 |     - Limit comments to essential explanations; avoid verbose documentation in code (e.g., use `// Init lobby` instead of a multi-line explanation).
+113 |     - Leverage TypeScript type inference to reduce explicit type annotations.
+114 |     - Remove redundant type annotations where TypeScript can infer types.
+115 | 
+116 | 23. **Balance Readability and Conciseness**
+117 |     - Ensure token optimizations do not obscure code intent (e.g., avoid cryptic abbreviations like `x` for `position`).
+118 |     - Use consistent naming conventions across the codebase.
+119 |     - Keep function and class names descriptive but concise.
+120 | 
+121 | ## Project Structure
+122 | 
+123 | 24. **Folder Organization**
+124 |     - Follow the established folder structure for all new files.
+125 |     - Keep related files together in appropriate directories.
+126 |     - Use index files for clean exports.
+127 | 
+128 | 25. **File Naming**
+129 |     - Use `.ts` extension for all TypeScript files.
+130 |     - Follow consistent naming patterns (e.g., `camelCase` for files, `PascalCase` for classes).
+131 |     - Use descriptive names that indicate file purpose.
+132 | 
+133 | ## Testing and Quality
+134 | 
+135 | 26. **Testing Requirements**
+136 |     - Write unit tests for all new functionality.
+137 |     - Maintain minimum 80% code coverage.
+138 |     - Use TypeScript for test files.
+139 |     - Mock external dependencies in tests.
+140 | 
+141 | 27. **Code Quality**
+142 |     - Use ESLint with TypeScript support.
+143 |     - Format code with Prettier.
+144 |     - Run type checking before commits.
+145 |     - Review code for SOLID principles compliance.
+146 | 
+147 | ## Version Control
+148 | 
+149 | 28. **Git Practices**
+150 |     - Write clear, descriptive commit messages.
+151 |     - Follow GitFlow branching strategy.
+152 |     - Keep commits focused and atomic.
+153 |     - Review changes before merging.
+154 | 
+155 | ## Project-Specific Rules
+156 | 
+157 | ### Architecture Goals
+158 | - **Clarity**: Write code that is easy to read and understand.  
+159 | - **Maintainability**: Structure the code for easy updates and debugging.  
+160 | - **Modularity**: Break functionality into reusable, independent components.  
+161 | - **Scalability**: Design systems to handle increased load efficiently.
+162 | 
+163 | ### Technologies
+164 | - Use WebAssembly (WASM) for procedural generation and CPU-heavy tasks.  
+165 | - Use worker threads with `SharedArrayBuffer` for concurrent processing.
+166 | - Use TypeScript for all JavaScript code.
+167 | 
+168 | ### Folder Structure
+169 | Organize the project as follows:
+170 | 
+171 | project-root/
+172 | ├── src/
+173 | │   ├── core/
+174 | │   │   ├── lobby/
+175 | │   │   │   ├── lobbyManager.ts
+176 | │   │   │   └── lobbyWorker.ts
+177 | │   │   └── game/
+178 | │   │       ├── player.ts
+179 | │   │       └── world.ts
+180 | │   ├── utils/
+181 | │   │   ├── logger.ts
+182 | │   │   └── helpers.ts
+183 | │   ├── config/
+184 | │   │   ├── env.ts
+185 | │   │   └── constants.ts
+186 | │   ├── wasm/
+187 | │   │   ├── procedural_generator.cpp
+188 | │   │   ├── lobby_generator.wasm
+189 | │   │   └── proceduralGenerator.ts
+190 | │   ├── server/
+191 | │   │   └── server.ts
+192 | │   └── index.ts
+193 | ├── tests/
+194 | │   ├── core/
+195 | │   │   └── lobbyManager.test.ts
+196 | │   └── utils/
+197 | │       └── helpers.test.ts
+198 | ├── scripts/
+199 | │   └── build_wasm.sh
+200 | ├── docs/
+201 | │   └── architecture.md
+202 | ├── package.json
+203 | ├── tsconfig.json
+204 | └── .env
+205 | 
+206 | ### Code Conventions
+207 | 1. **Naming Conventions**  
+208 |    - Files/Folders: `camelCase` (e.g., `lobbyManager.ts`)  
+209 |    - Classes: `PascalCase` (e.g., `LobbyManager`)  
+210 |    - Functions/Variables: `camelCase` (e.g., `createLobby`)  
+211 |    - Constants: `UPPER_CASE` (e.g., `MAX_PLAYERS`)
+212 | 
+213 | 2. **Modularization**  
+214 |    - Each file should have a single responsibility (e.g., one class or function group per file).  
+215 |    - Use ES6 modules (`import`/`export`) for dependency management.
+216 | 
+217 | 3. **Error Handling**  
+218 |    - Wrap asynchronous operations in `try-catch` blocks.  
+219 |    - Log errors centrally using `utils/logger.ts`.
+220 | 
+221 | 4. **Comments and Documentation**  
+222 |    - Use JSDoc for all public functions and classes (e.g., `@param`, `@returns`).  
+223 |    - Add a file-level comment describing its purpose.
+224 | 
+225 | 5. **Asynchronous Code**  
+226 |    - Prefer `async/await` over callbacks or raw promises for readability.
+227 | 
+228 | 6. **Testing**  
+229 |    - Write unit tests for each module using Jest, located in `tests/`.  
+230 |    - Aim for at least 80% code coverage.
+231 | 
+232 | 7. **Linting and Formatting**  
+233 |    - Use ESLint with Airbnb style guide for linting.  
+234 |    - Use Prettier for consistent formatting.
+235 | 
+236 | 8. **Version Control**  
+237 |    - Write clear, descriptive commit messages (e.g., "feat: add lobby creation logic").  
+238 |    - Follow a branching strategy like GitFlow (e.g., `main`, `develop`, feature branches).
+```
+
+Prompt.txt
+```
+1 | # Research and Design a High-Performance Node.js Server Architecture for an MMO RPG Using WebAssembly and Concurrent Processing
+2 | 
+3 | ## Objective
+4 | Research and propose a server-side architecture for a Node.js-based application (e.g., an MMO RPG game server) that maximizes performance and scalability. The focus is on:
+5 | - Integrating well-tested, high-performance computations written in other languages (e.g., C++, Rust) and ported to Node.js via WebAssembly (WASM) for CPU-intensive tasks like procedural generation or game logic.
+6 | - Exploring concurrent processing alternatives to running multiple Node.js instances, such as using Node.js worker threads with SharedArrayBuffer, to enable multi-core utilization and efficient memory sharing (e.g., for map data or game state).
+7 | 
+8 | ## Research Questions
+9 | 
+10 | ### WebAssembly Integration
+11 | 1. Can we use established, high-performance languages (e.g., C++, Rust) to write server-side logic (e.g., procedural map generation, physics, or AI) and compile them to WASM for use in Node.js?
+12 | 2. What are the performance benefits of WASM over native JavaScript for these tasks, based on benchmarks or case studies?
+13 | 3. How do we practically integrate WASM modules into a Node.js server?
+14 | 
+15 | ### Concurrent Processing and Memory Sharing
+16 | 1. What are the best alternatives to running multiple Node.js instances for achieving concurrency, particularly those that allow sharing memory (e.g., parts of a game map)?
+17 | 2. How can Node.js worker threads with SharedArrayBuffer be used to leverage multiple CPU cores and share data efficiently?
+18 | 3. Are there limitations or better alternatives (e.g., clustering, microservices) for scalability and performance?
+19 | 
+20 | ### Feasibility and Optimization
+21 | 1. Is this approach stable and well-tested as of March 2025?
+22 | 2. What are the trade-offs (e.g., complexity, overhead) and how can we mitigate them?
+23 | 
+24 | ## Desired Output
+25 | Provide a detailed response that includes:
+26 | - **Technical Feasibility**: Confirmation that WASM and worker threads can be used effectively in Node.js for performance gains.
+27 | - **Implementation Guidance**: Step-by-step examples or pseudocode for integrating WASM and setting up worker threads with shared memory.
+28 | - **Performance Insights**: Evidence from benchmarks or research showing potential speed improvements.
+29 | - **Recommendations**: A suggested architecture combining these technologies for an MMO RPG server, with considerations for scalability and simplicity.
+30 | 
+31 | ## Context and Assumptions
+32 | The application is likely a game server (e.g., an MMO RPG) requiring real-time performance for tasks like procedural generation, player interactions, and game state management. "Server-side rendering" in this context refers to server-side computations (not traditional HTML rendering), such as generating game assets or handling logic. The solution should prioritize speed, multi-core utilization, and efficient memory use over simplicity if necessary, but remain feasible for an MVP.
+33 | 
+34 | ## Why This Prompt is Improved
+35 | - **Clarity**: The original prompt was vague about the application type and goals. This version assumes an MMO RPG context and makes it explicit while keeping the focus on performance optimization.
+36 | - **Specificity**: It now asks precise questions about WASM and concurrency, avoiding broad terms and targeting actionable solutions.
+37 | - **Technical Depth**: It incorporates WASM and worker threads with SharedArrayBuffer, reflecting the research insights, and requests practical implementation details.
+38 | - **Focus on Intent**: It preserves the interest in fast, multi-processor-capable solutions and enhances it with modern, proven techniques.
+39 | 
+40 | ## Answer to Your Query
+41 | 
+42 | ### Technical Feasibility
+43 | Yes, you can significantly enhance Node.js server performance by:
+44 | - **Using WebAssembly (WASM)**: Write performance-critical code in languages like C++ or Rust, compile it to WASM, and run it in Node.js. This is well-tested and ideal for CPU-intensive tasks like procedural generation or physics simulations.
+45 | - **Leveraging Worker Threads with SharedArrayBuffer**: Use Node.js worker threads to run concurrent JavaScript processes within a single instance, sharing memory (e.g., map data) efficiently via SharedArrayBuffer, thus utilizing multiple CPU cores.
+46 | 
+47 | Both approaches are stable as of March 2025, supported by Node.js documentation and widely discussed in developer communities.
+48 | 
+49 | ### Implementation Guidance
+50 | 
+51 | #### 1. Integrating WebAssembly in Node.js
+52 | You can offload heavy computations to WASM for speed. Here's how:
+53 | 
+54 | **Step 1: Write Code in C++/Rust**
+55 | Example (C++ for procedural map generation):
+56 | ```cpp
+57 | // map_generator.cpp
+58 | extern "C" {
+59 |     void generate_heightmap(int* buffer, int size, int seed) {
+60 |         for (int i = 0; i < size; i++) {
+61 |             buffer[i] = (i * seed) % 256; // Simplified Perlin noise placeholder
+62 |         }
+63 |     }
+64 | }
+65 | ```
+66 | 
+67 | **Compile to WASM using Emscripten:**
+68 | ```bash
+69 | emcc map_generator.cpp -s EXPORTED_FUNCTIONS='["_generate_heightmap"]' -o map_generator.wasm
+70 | ```
+71 | 
+72 | **Step 2: Load and Use in Node.js**
+73 | ```javascript
+74 | const fs = require('fs');
+75 | const wasmBuffer = fs.readFileSync('./map_generator.wasm');
+76 | WebAssembly.instantiate(wasmBuffer).then(wasmModule => {
+77 |     const { generate_heightmap } = wasmModule.instance.exports;
+78 |     const size = 1024;
+79 |     const heightmap = new Int32Array(size);
+80 |     generate_heightmap(heightmap, size, 42); // Call WASM function
+81 |     console.log(heightmap); // Use generated data
+82 | });
+83 | ```
+84 | 
+85 | **Why It Works**: WASM runs at near-native speed, making it faster than JavaScript for complex calculations.
+86 | 
+87 | #### 2. Using Worker Threads with SharedArrayBuffer
+88 | Run concurrent tasks and share memory efficiently:
+89 | 
+90 | **Step 1: Set Up Main Thread**
+91 | ```javascript
+92 | // server.js
+93 | const { Worker } = require('node:worker_threads');
+94 | const sharedBuffer = new SharedArrayBuffer(1024 * 1024); // 1MB for map data
+95 | const mapData = new Int32Array(sharedBuffer);
+96 | 
+97 | // Start two workers
+98 | const worker1 = new Worker('./game_worker.js', { workerData: { sharedBuffer, region: 'north' } });
+99 | const worker2 = new Worker('./game_worker.js', { workerData: { sharedBuffer, region: 'south' } });
+100 | ```
+101 | 
+102 | **Step 2: Worker Logic**
+103 | ```javascript
+104 | // game_worker.js
+105 | const { workerData } = require('node:worker_threads');
+106 | const mapData = new Int32Array(workerData.sharedBuffer);
+107 | 
+108 | console.log(`Worker for ${workerData.region} started`);
+109 | // Example: Update map data for this region
+110 | for (let i = 0; i < 100; i++) {
+111 |     mapData[i] = i; // Modify shared memory
+112 | }
+113 | ```
+114 | 
+115 | **Why It Works**: Workers run on separate threads, accessing the same mapData without copying, leveraging multi-core CPUs.
+116 | 
+117 | ### Performance Insights
+118 | - **WASM Benefits**: Benchmarks (e.g., from the iswasmfast GitHub repository) show WASM can be up to 2.85x faster than JavaScript for tasks like Fibonacci calculations. For game tasks like procedural generation, similar gains are likely, with reports of 1.67x to 11x speedups depending on the environment (e.g., Chrome V8, per WebAssembly Is Fast).
+119 | - **Worker Threads**: SharedArrayBuffer eliminates serialization overhead, making it faster than IPC between multiple Node.js instances. It's ideal for sharing large datasets like heightmaps, with minimal latency.
+120 | 
+121 | ### Recommended Architecture for an MMO RPG Server
+122 | Here's a scalable design:
+123 | - **Frontend**: Browser-based clients using Three.js for 3D rendering, communicating via WebSockets.
+124 | - **Backend**:
+125 |   - **Node.js Core**: Handles I/O (e.g., WebSocket connections) using Express and ws.
+126 |   - **WASM Modules**: Offload map generation and monster AI to C++/Rust-compiled WASM for speed.
+127 |   - **Worker Threads**: Manage player regions or game logic in parallel, sharing a SharedArrayBuffer for the game world (e.g., heightmaps or entity positions).
+128 | - **Database**: Use MongoDB for persistent player data.
+129 | 
+130 | **Example Flow**:
+131 | 1. Client requests a new map chunk.
+132 | 2. Server calls WASM module to generate terrain, storing it in SharedArrayBuffer.
+133 | 3. Worker threads update player positions and monster states in shared memory.
+134 | 4. Main thread syncs updates to clients via WebSockets.
+135 | 
+136 | **Scalability**: Start with 10 players per instance; scale by adding more Node.js instances with a load balancer if needed, using Redis for cross-instance state if memory sharing isn't sufficient.
+137 | 
+138 | ### Considerations
+139 | - **WASM Overhead**: Calling WASM from JavaScript has a small cost, so batch computations for maximum benefit.
+140 | - **Thread Safety**: Use Atomics in worker threads to prevent race conditions when modifying shared memory.
+141 | - **Alternatives**: Node.js cluster module or microservices in Go/Rust are options, but they lack shared memory efficiency.
+142 | 
+143 | This architecture combines WASM's speed with worker threads' concurrency, delivering a fast, multi-processor-capable server for your MMO RPG. Let me know if you'd like further refinements!
+144 | 
+```
+
+Research.txt
+```
+1 | # Research on Node.js Server Architecture for MMO RPGs
+2 | 
+3 | ## Introduction
+4 | This research explores the design of a high-performance Node.js server architecture for an MMO RPG game, focusing on integrating WebAssembly (WASM) for CPU-intensive tasks and leveraging concurrent processing via worker threads with SharedArrayBuffer. The goal is to maximize performance and scalability.
+5 | 
+6 | ## Key Points
+7 | - Research suggests WASM can significantly boost Node.js server performance for CPU-intensive tasks like procedural generation in MMO RPGs, with speedups up to 10x compared to JavaScript.
+8 | - Using Node.js worker threads with SharedArrayBuffer enables efficient multi-core utilization and memory sharing, ideal for real-time game state management.
+9 | - The approach is expected to be stable and well-tested by March 2025, though it adds complexity that can be mitigated with careful design.
+10 | 
+11 | ## Technical Feasibility
+12 | ### WebAssembly Integration
+13 | WASM allows using high-performance languages like C++ or Rust for server-side logic, compiled to WASM for Node.js. This is particularly effective for tasks like map generation or AI, where benchmarks show WASM can be 1.67x to 11x faster than JavaScript.
+14 | 
+15 | ### Worker Threads and SharedArrayBuffer
+16 | Worker threads with SharedArrayBuffer enable concurrent processing within a single Node.js instance, sharing memory efficiently for game state, leveraging multiple CPU cores without the overhead of inter-process communication.
+17 | 
+18 | ## Implementation Guidance
+19 | ### WASM Integration
+20 | 1. Write performance-critical code in C++ or Rust.
+21 | 2. Compile to WASM using tools like Emscripten.
+22 | 3. Load and execute in Node.js using the WebAssembly API.
+23 | 
+24 | **Example: C++ Function for Map Generation**
+25 | ```cpp
+26 | extern "C" {
+27 |     void generate_heightmap(int* buffer, int size, int seed) {
+28 |         for (int i = 0; i < size; i++) {
+29 |             buffer[i] = (i * seed) % 256; // Simplified Perlin noise
+30 |         }
+31 |     }
+32 | }
+33 | ```
+34 | 
+35 | ### Worker Threads with SharedArrayBuffer
+36 | 1. Set up the main thread with SharedArrayBuffer.
+37 | 2. Create worker threads to handle game logic.
+38 | 
+39 | **Example: Main Thread Setup**
+40 | ```javascript
+41 | const { Worker } = require('node:worker_threads');
+42 | const sharedBuffer = new SharedArrayBuffer(1024 * 1024); // 1MB for map data
+43 | const mapData = new Int32Array(sharedBuffer);
+44 | const worker1 = new Worker('./game_worker.js', { workerData: { sharedBuffer, region: 'north' } });
+45 | const worker2 = new Worker('./game_worker.js', { workerData: { sharedBuffer, region: 'south' } });
+46 | ```
+47 | 
+48 | ## Recommended Architecture for MMO RPG Server
+49 | - **Frontend**: Browser-based clients using Three.js for 3D rendering, communicating via WebSockets.
+50 | - **Backend**:
+51 |   - Node.js Core: Handles I/O using Express and ws.
+52 |   - WASM Modules: Offload map generation and monster AI to C++/Rust-compiled WASM for speed.
+53 |   - Worker Threads: Manage player regions or game logic in parallel, sharing a SharedArrayBuffer for the game world.
+54 | 
+55 | **Example Flow**:
+56 | 1. Client requests a new map chunk.
+57 | 2. Server calls WASM module to generate terrain, storing in SharedArrayBuffer.
+58 | 3. Worker threads update player positions and monster states in shared memory.
+59 | 4. Main thread syncs updates to clients via WebSockets.
+60 | 
+61 | ## Performance Insights and Benchmarks
+62 | WASM benefits are evident from benchmarks, showing significant speedups for CPU-intensive tasks. Worker threads with SharedArrayBuffer eliminate serialization overhead, making them ideal for real-time applications.
+63 | 
+64 | ## Considerations and Trade-offs
+65 | - **WASM Overhead**: Small cost in calling WASM from JavaScript; batch computations for maximum benefit.
+66 | - **Thread Safety**: Use Atomics in worker threads to prevent race conditions when modifying shared memory.
+67 | - **Alternatives**: Node.js cluster module or microservices in Go/Rust are options, but they lack shared memory efficiency.
+68 | 
+69 | ## Key Citations
+70 | - GitHub - Performance comparison of WebAssembly, C++ Addon, and native implementations in Node.js
+71 | - Understanding the Performance of WebAssembly Applications with Benchmarks
+```
+
+jest.config.ts
+```
+1 | import type { Config } from '@jest/types';
+2 | 
+3 | const config: Config.InitialOptions = {
+4 |   preset: 'ts-jest',
+5 |   testEnvironment: 'node',
+6 |   roots: ['<rootDir>/src', '<rootDir>/tests'],
+7 |   transform: {
+8 |     '^.+\\.tsx?$': 'ts-jest',
+9 |   },
+10 |   testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
+11 |   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+12 |   collectCoverage: true,
+13 |   coverageDirectory: 'coverage',
+14 |   coverageReporters: ['text', 'lcov'],
+15 |   coverageThreshold: {
+16 |     global: {
+17 |       branches: 80,
+18 |       functions: 80,
+19 |       lines: 80,
+20 |       statements: 80,
+21 |     },
+22 |   },
+23 | };
+24 | 
+25 | export default config; 
+```
+
+mvp.txt
+```
+1 | # MVP Implementation Plan
+2 | 
+3 | This file outlines the steps to implement the Minimum Viable Product (MVP) for the MMO RPG server. The goal is to validate core concepts: procedural generation, multiplayer interactions, and initial cursor/control mechanics.
+4 | 
+5 | ## Key Features to Implement
+6 | 
+7 | 1. **Lobby Instance Management**  
+8 |    - Create and manage multiple lobby instances with a defined user limit (e.g., 50 users).  
+9 |    - Automatically create new instances when one reaches capacity.
+10 | 
+11 | 2. **Procedural Generation**  
+12 |    - Use WebAssembly (WASM) to generate lobby environments efficiently.  
+13 |    - Validate that generated layouts are usable and performant.
+14 | 
+15 | 3. **Multiplayer Interactions**  
+16 |    - Handle user connections and real-time updates (e.g., movement) using worker threads and `SharedArrayBuffer`.  
+17 |    - Ensure updates are synchronized across connected users.
+18 | 
+19 | 4. **Cursor/Control Mechanics**  
+20 |    - Implement basic movement or interaction mechanics (e.g., updating user positions) to simulate control input.
+21 | 
+22 | ## Step-by-Step Guide
+23 | 
+24 | ### 1. Set Up Project Structure  
+25 | - Create the folder structure as defined in `.cursorrules`.  
+26 | - Initialize `package.json` with dependencies: `express`, `ws`, `jest`, and others as needed.
+27 | 
+28 | ### 2. Implement Lobby Management  
+29 | - Create `src/core/lobby/lobbyManager.js` with a `LobbyManager` class.  
+30 |   - Add methods: `joinLobby(userId)` and `createLobby()`.  
+31 |   - Track lobby instances and user counts.
+32 | 
+33 | ### 3. Develop Procedural Generation  
+34 | - Write C++ code in `src/wasm/procedural_generator.cpp` for lobby layout generation.  
+35 | - Compile to WASM using Emscripten with a script in `scripts/build_wasm.sh`.  
+36 | - Create `src/wasm/proceduralGenerator.js` to load and call the WASM module.
+37 | 
+38 | ### 4. Set Up Worker Threads for Lobbies  
+39 | - Implement `src/core/lobby/lobbyWorker.js` to manage lobby logic in a worker thread.  
+40 | - Use `SharedArrayBuffer` to share lobby state (e.g., user positions) between threads.
+41 | 
+42 | ### 5. Configure Main Server  
+43 | - Set up `src/server/server.js` with WebSocket support using the `ws` library.  
+44 | - Route client messages to appropriate worker threads.
+45 | 
+46 | ### 6. Test the MVP  
+47 | - Create a simple test client (e.g., a Node.js script or HTML page) to simulate multiple users.  
+48 | - Verify:  
+49 |   - New lobbies are created when capacity is reached.  
+50 |   - Procedural generation works and is fast.  
+51 |   - Users can join and see real-time position updates.
+52 | 
+53 | ## Validation Criteria  
+54 | - **Procedural Generation**: WASM generates lobby layouts in under 1 second.  
+55 | - **Multiplayer**: Users in the same lobby see position updates within 100ms.  
+56 | - **Controls**: Basic movement mechanics function without errors.  
+57 | - **Stability**: Server handles 100 simulated users without crashing.
+```
+
+package.json
+```
+1 | {
+2 |   "name": "vibe-game",
+3 |   "version": "1.0.0",
+4 |   "description": "An MMO RPG server implementation",
+5 |   "main": "dist/index.js",
+6 |   "scripts": {
+7 |     "start": "node dist/index.js",
+8 |     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+9 |     "build": "tsc",
+10 |     "test": "jest",
+11 |     "lint": "eslint . --ext .ts",
+12 |     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\""
+13 |   },
+14 |   "dependencies": {
+15 |     "express": "^4.18.2",
+16 |     "ws": "^8.16.0"
+17 |   },
+18 |   "devDependencies": {
+19 |     "@types/express": "^4.17.21",
+20 |     "@types/jest": "^29.5.12",
+21 |     "@types/node": "^20.11.19",
+22 |     "@types/ws": "^8.5.10",
+23 |     "@typescript-eslint/eslint-plugin": "^7.0.1",
+24 |     "@typescript-eslint/parser": "^7.0.1",
+25 |     "eslint": "^8.56.0",
+26 |     "jest": "^29.7.0",
+27 |     "prettier": "^3.2.5",
+28 |     "ts-jest": "^29.1.2",
+29 |     "ts-node-dev": "^2.0.0",
+30 |     "typescript": "^5.3.3"
+31 |   }
+32 | }
+```
+
+tsconfig.json
+```
+1 | {
+2 |   "compilerOptions": {
+3 |     "target": "ES2020",
+4 |     "module": "commonjs",
+5 |     "lib": ["ES2020", "es2017.sharedmemory", "dom"],
+6 |     "outDir": "./dist",
+7 |     "rootDir": ".",
+8 |     "strict": true,
+9 |     "esModuleInterop": true,
+10 |     "skipLibCheck": true,
+11 |     "forceConsistentCasingInFileNames": true,
+12 |     "moduleResolution": "node",
+13 |     "resolveJsonModule": true,
+14 |     "baseUrl": ".",
+15 |     "paths": {
+16 |       "*": ["node_modules/*", "src/types/*"]
+17 |     }
+18 |   },
+19 |   "include": ["src/**/*", "tests/**/*"],
+20 |   "exclude": ["node_modules", "dist"]
+21 | } 
+```
+
+docs/architecture.md
+```
+```
+
+scripts/build_wasm.sh
+```
+1 | #!/bin/bash
+2 | emcc src/wasm/procedural_generator.cpp \
+3 |     -s EXPORTED_FUNCTIONS='["_generate_spawn_points"]' \
+4 |     --no-entry \
+5 |     -o src/wasm/lobby_generator.wasm
+```
+
+src/index.ts
+```
+1 | import { GameServer } from './server/server';
+2 | 
+3 | const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+4 | const server = new GameServer(port);
+5 | 
+6 | server.start(); 
+```
+
+src/interfaces.ts
+```
+1 | /**
+2 |  * Core interfaces for the MMO RPG server
+3 |  */
+4 | 
+5 | import { Worker } from 'worker_threads';
+6 | 
+7 | export interface Position {
+8 |   x: number;
+9 |   y: number;
+10 |   z: number;
+11 | }
+12 | 
+13 | export interface Player {
+14 |   id: string;
+15 |   position: Position;
+16 |   health: number;
+17 |   level: number;
+18 |   inventory: Item[];
+19 | }
+20 | 
+21 | export interface Item {
+22 |   id: string;
+23 |   name: string;
+24 |   type: ItemType;
+25 |   stats: ItemStats;
+26 | }
+27 | 
+28 | export enum ItemType {
+29 |   WEAPON = 'WEAPON',
+30 |   ARMOR = 'ARMOR',
+31 |   CONSUMABLE = 'CONSUMABLE',
+32 |   MATERIAL = 'MATERIAL'
+33 | }
+34 | 
+35 | export interface ItemStats {
+36 |   damage?: number;
+37 |   defense?: number;
+38 |   durability?: number;
+39 |   [key: string]: number | undefined;
+40 | }
+41 | 
+42 | export interface Lobby {
+43 |   id: string;
+44 |   world: World;
+45 |   players: Map<string, Player>;
+46 |   maxPlayers: number;
+47 |   status: LobbyStatus;
+48 |   worker: Worker;
+49 |   playerPositions: Float32Array;
+50 |   playerIndex: Map<string, number>;
+51 |   nextPlayerIndex: number;
+52 | }
+53 | 
+54 | export enum LobbyStatus {
+55 |   WAITING = 'WAITING',
+56 |   STARTING = 'STARTING',
+57 |   IN_PROGRESS = 'IN_PROGRESS',
+58 |   ENDED = 'ENDED'
+59 | }
+60 | 
+61 | export interface World {
+62 |   id: string;
+63 |   name: string;
+64 |   regions: Region[];
+65 |   spawnPoints: Position[];
+66 |   getRandomSpawnPoint(): Position;
+67 | }
+68 | 
+69 | export interface Region {
+70 |   id: string;
+71 |   name: string;
+72 |   bounds: RegionBounds;
+73 |   entities: Entity[];
+74 | }
+75 | 
+76 | export interface RegionBounds {
+77 |   minX: number;
+78 |   maxX: number;
+79 |   minY: number;
+80 |   maxY: number;
+81 |   minZ: number;
+82 |   maxZ: number;
+83 | }
+84 | 
+85 | export interface Entity {
+86 |   id: string;
+87 |   type: EntityType;
+88 |   position: Position;
+89 |   health: number;
+90 | }
+91 | 
+92 | export enum EntityType {
+93 |   PLAYER = 'PLAYER',
+94 |   NPC = 'NPC',
+95 |   MONSTER = 'MONSTER',
+96 |   ITEM = 'ITEM'
+97 | }
+98 | 
+99 | export interface GameState {
+100 |   players: Map<string, Player>;
+101 |   world: World;
+102 |   time: number;
+103 |   events: GameEvent[];
+104 | }
+105 | 
+106 | export interface GameEvent {
+107 |   id: string;
+108 |   type: GameEventType;
+109 |   timestamp: number;
+110 |   data: unknown;
+111 | }
+112 | 
+113 | export enum GameEventType {
+114 |   PLAYER_JOIN = 'PLAYER_JOIN',
+115 |   PLAYER_LEAVE = 'PLAYER_LEAVE',
+116 |   PLAYER_MOVE = 'PLAYER_MOVE',
+117 |   PLAYER_ATTACK = 'PLAYER_ATTACK',
+118 |   PLAYER_DAMAGE = 'PLAYER_DAMAGE',
+119 |   ITEM_PICKUP = 'ITEM_PICKUP',
+120 |   ITEM_DROP = 'ITEM_DROP'
+121 | } 
+```
+
+src/config/constants.ts
+```
+1 | /**
+2 |  * Game constants and configuration values
+3 |  */
+4 | 
+5 | export const GAME_CONSTANTS = {
+6 |   // Player settings
+7 |   PLAYER: {
+8 |     MAX_HEALTH: 100,
+9 |     BASE_MOVE_SPEED: 5,
+10 |     BASE_ATTACK_DAMAGE: 10,
+11 |     MAX_LEVEL: 100,
+12 |     EXPERIENCE_MULTIPLIER: 1.5
+13 |   },
+14 | 
+15 |   // World settings
+16 |   WORLD: {
+17 |     MAX_REGIONS: 100,
+18 |     REGION_SIZE: 1000,
+19 |     SPAWN_PROTECTION_RADIUS: 50,
+20 |     MAX_ENTITIES_PER_REGION: 1000
+21 |   },
+22 | 
+23 |   // Combat settings
+24 |   COMBAT: {
+25 |     ATTACK_COOLDOWN: 1000, // ms
+26 |     MAX_ATTACK_RANGE: 5,
+27 |     CRITICAL_HIT_MULTIPLIER: 1.5,
+28 |     CRITICAL_HIT_CHANCE: 0.1
+29 |   },
+30 | 
+31 |   // Item settings
+32 |   ITEM: {
+33 |     MAX_STACK_SIZE: 99,
+34 |     MAX_DURABILITY: 100,
+35 |     REPAIR_COST_MULTIPLIER: 0.5
+36 |   },
+37 | 
+38 |   // Network settings
+39 |   NETWORK: {
+40 |     MAX_PACKET_SIZE: 1024 * 64, // 64KB
+41 |     PING_TIMEOUT: 5000, // ms
+42 |     RECONNECT_TIMEOUT: 30000, // ms
+43 |     MAX_RECONNECT_ATTEMPTS: 3
+44 |   },
+45 | 
+46 |   // Game loop settings
+47 |   GAME_LOOP: {
+48 |     TICK_RATE: 60,
+49 |     PHYSICS_UPDATE_RATE: 120,
+50 |     NETWORK_UPDATE_RATE: 30
+51 |   }
+52 | } as const;
+53 | 
+54 | // Type-safe access to constants
+55 | export type GameConstants = typeof GAME_CONSTANTS;
+56 | 
+57 | // Helper function to get nested constant values
+58 | export function getConstant<T extends keyof GameConstants, K extends keyof GameConstants[T]>(
+59 |   category: T,
+60 |   key: K
+61 | ): GameConstants[T][K] {
+62 |   return GAME_CONSTANTS[category][key];
+63 | } 
+```
+
+src/core/interfaces.ts
+```
+1 | /**
+2 |  * Core interfaces for the MMO RPG server
+3 |  */
+4 | 
+5 | export interface Position {
+6 |   x: number;
+7 |   y: number;
+8 |   z: number;
+9 | }
+10 | 
+11 | export interface Player {
+12 |   id: string;
+13 |   position: Position;
+14 |   health: number;
+15 |   level: number;
+16 |   inventory: Item[];
+17 | }
+18 | 
+19 | export interface Item {
+20 |   id: string;
+21 |   name: string;
+22 |   type: ItemType;
+23 |   stats: ItemStats;
+24 | }
+25 | 
+26 | export enum ItemType {
+27 |   WEAPON = 'WEAPON',
+28 |   ARMOR = 'ARMOR',
+29 |   CONSUMABLE = 'CONSUMABLE',
+30 |   MATERIAL = 'MATERIAL'
+31 | }
+32 | 
+33 | export interface ItemStats {
+34 |   damage?: number;
+35 |   defense?: number;
+36 |   durability?: number;
+37 |   [key: string]: number | undefined;
+38 | }
+39 | 
+40 | export interface Lobby {
+41 |   id: string;
+42 |   players: Map<string, Player>;
+43 |   maxPlayers: number;
+44 |   status: LobbyStatus;
+45 | }
+46 | 
+47 | export enum LobbyStatus {
+48 |   WAITING = 'WAITING',
+49 |   STARTING = 'STARTING',
+50 |   IN_PROGRESS = 'IN_PROGRESS',
+51 |   ENDED = 'ENDED'
+52 | }
+53 | 
+54 | export interface World {
+55 |   id: string;
+56 |   name: string;
+57 |   regions: Region[];
+58 |   spawnPoints: Position[];
+59 | }
+60 | 
+61 | export interface Region {
+62 |   id: string;
+63 |   name: string;
+64 |   bounds: RegionBounds;
+65 |   entities: Entity[];
+66 | }
+67 | 
+68 | export interface RegionBounds {
+69 |   minX: number;
+70 |   maxX: number;
+71 |   minY: number;
+72 |   maxY: number;
+73 |   minZ: number;
+74 |   maxZ: number;
+75 | }
+76 | 
+77 | export interface Entity {
+78 |   id: string;
+79 |   type: EntityType;
+80 |   position: Position;
+81 |   health: number;
+82 | }
+83 | 
+84 | export enum EntityType {
+85 |   PLAYER = 'PLAYER',
+86 |   NPC = 'NPC',
+87 |   MONSTER = 'MONSTER',
+88 |   ITEM = 'ITEM'
+89 | }
+90 | 
+91 | export interface GameState {
+92 |   players: Map<string, Player>;
+93 |   world: World;
+94 |   time: number;
+95 |   events: GameEvent[];
+96 | }
+97 | 
+98 | export interface GameEvent {
+99 |   id: string;
+100 |   type: GameEventType;
+101 |   timestamp: number;
+102 |   data: unknown;
+103 | }
+104 | 
+105 | export enum GameEventType {
+106 |   PLAYER_JOIN = 'PLAYER_JOIN',
+107 |   PLAYER_LEAVE = 'PLAYER_LEAVE',
+108 |   PLAYER_MOVE = 'PLAYER_MOVE',
+109 |   PLAYER_ATTACK = 'PLAYER_ATTACK',
+110 |   PLAYER_DAMAGE = 'PLAYER_DAMAGE',
+111 |   ITEM_PICKUP = 'ITEM_PICKUP',
+112 |   ITEM_DROP = 'ITEM_DROP'
+113 | } 
+```
+
+src/server/server.ts
+```
+1 | import express from 'express';
+2 | import { WebSocketServer, WebSocket } from 'ws';
+3 | import { LobbyManager } from '../core/lobby/lobbyManager';
+4 | import { Player } from '../core/game/player';
+5 | import { Position } from '../interfaces';
+6 | import { ProceduralGenerator } from '../wasm/proceduralGenerator';
+7 | 
+8 | /**
+9 |  * Main server class handling HTTP and WebSocket connections
+10 |  */
+11 | export class GameServer {
+12 |   private readonly app: express.Application;
+13 |   private readonly wss: WebSocketServer;
+14 |   private readonly lobbyManager: LobbyManager;
+15 |   private readonly proceduralGenerator: ProceduralGenerator;
+16 |   private readonly port: number;
+17 |   private readonly connections: Map<WebSocket, { playerId: string; lobbyId: string }> = new Map();
+18 | 
+19 |   constructor(port: number = 3000) {
+20 |     this.app = express();
+21 |     this.port = port;
+22 |     this.proceduralGenerator = new ProceduralGenerator();
+23 |     this.lobbyManager = new LobbyManager(50, this.proceduralGenerator);
+24 |     this.wss = new WebSocketServer({ port: port + 1 });
+25 |     this.setupWebSocket();
+26 |   }
+27 | 
+28 |   /**
+29 |    * Sets up WebSocket connection handling
+30 |    */
+31 |   private setupWebSocket(): void {
+32 |     this.wss.on('connection', (ws: WebSocket) => {
+33 |       const playerId = `player_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+34 |       const dummyPosition: Position = { x: 0, y: 0, z: 0 };
+35 |       const player = new Player(playerId, dummyPosition);
+36 |       const lobbyId = this.lobbyManager.joinLobby(player);
+37 |       this.connections.set(ws, { playerId, lobbyId });
+38 |       ws.send(JSON.stringify({ type: 'CONNECTED', playerId, lobbyId, position: player.position }));
+39 | 
+40 |       ws.on('message', (message: string) => {
+41 |         try {
+42 |           const data = JSON.parse(message);
+43 |           this.handleMessage(ws, data);
+44 |         } catch (error) {
+45 |           console.error('Error handling message:', error);
+46 |           ws.send(JSON.stringify({ type: 'ERROR', message: 'Invalid message format' }));
+47 |         }
+48 |       });
+49 | 
+50 |       ws.on('close', () => {
+51 |         const conn = this.connections.get(ws);
+52 |         if (conn) {
+53 |           this.lobbyManager.leaveLobby(conn.playerId, conn.lobbyId);
+54 |           this.connections.delete(ws);
+55 |         }
+56 |       });
+57 |     });
+58 |   }
+59 | 
+60 |   /**
+61 |    * Handles incoming WebSocket messages
+62 |    */
+63 |   private handleMessage(ws: WebSocket, data: any): void {
+64 |     const conn = this.connections.get(ws);
+65 |     if (!conn) return;
+66 |     const { playerId, lobbyId } = conn;
+67 |     const lobby = this.lobbyManager.getLobbyState(lobbyId);
+68 |     if (!lobby || !lobby.worker) return;
+69 |     const index = lobby.playerIndex.get(playerId);
+70 |     if (index === undefined) return;
+71 | 
+72 |     if (data.type === 'MOVE') {
+73 |       lobby.worker.postMessage({
+74 |         type: 'MOVE',
+75 |         index,
+76 |         data: { direction: data.direction }
+77 |       });
+78 |     }
+79 |   }
+80 | 
+81 |   private startUpdateLoop(): void {
+82 |     setInterval(() => {
+83 |       for (const lobby of this.lobbyManager.getActiveLobbies()) {
+84 |         const positions = Array.from(lobby.players.keys()).map(pid => {
+85 |           const idx = lobby.playerIndex.get(pid);
+86 |           if (idx !== undefined) {
+87 |             return {
+88 |               playerId: pid,
+89 |               position: {
+90 |                 x: lobby.playerPositions[3*idx],
+91 |                 y: lobby.playerPositions[3*idx+1],
+92 |                 z: lobby.playerPositions[3*idx+2]
+93 |               }
+94 |             };
+95 |           }
+96 |           return null;
+97 |         }).filter(p => p !== null);
+98 |         const msg = JSON.stringify({ type: 'UPDATE', positions });
+99 |         for (const [ws, conn] of this.connections) {
+100 |           if (conn.lobbyId === lobby.id) ws.send(msg);
+101 |         }
+102 |       }
+103 |     }, 100);
+104 |   }
+105 | 
+106 |   /**
+107 |    * Starts the server
+108 |    */
+109 |   public async start(): Promise<void> {
+110 |     await this.proceduralGenerator.init();
+111 |     this.startUpdateLoop();
+112 |     this.app.listen(this.port, () => {
+113 |       console.log(`HTTP server running on port ${this.port}`);
+114 |       console.log(`WebSocket server running on port ${this.port + 1}`);
+115 |     });
+116 |   }
+117 | } 
+```
+
+src/utils/helpers.ts
+```
+1 | import { Position } from '../interfaces';
+2 | 
+3 | /**
+4 |  * Utility functions for the MMO RPG server
+5 |  */
+6 | 
+7 | /**
+8 |  * Generates a unique ID
+9 |  */
+10 | export function generateId(prefix: string = ''): string {
+11 |   return `${prefix}${Date.now()}_${Math.random().toString(36).slice(2)}`;
+12 | }
+13 | 
+14 | /**
+15 |  * Calculates distance between two positions
+16 |  */
+17 | export function calculateDistance(pos1: Position, pos2: Position): number {
+18 |   const dx = pos2.x - pos1.x;
+19 |   const dy = pos2.y - pos1.y;
+20 |   const dz = pos2.z - pos1.z;
+21 |   return Math.sqrt(dx * dx + dy * dy + dz * dz);
+22 | }
+23 | 
+24 | /**
+25 |  * Checks if a position is within a given range of another position
+26 |  */
+27 | export function isInRange(pos1: Position, pos2: Position, range: number): boolean {
+28 |   return calculateDistance(pos1, pos2) <= range;
+29 | }
+30 | 
+31 | /**
+32 |  * Deep clones an object
+33 |  */
+34 | export function deepClone<T>(obj: T): T {
+35 |   return JSON.parse(JSON.stringify(obj));
+36 | }
+37 | 
+38 | /**
+39 |  * Debounces a function
+40 |  */
+41 | export function debounce<T extends (...args: any[]) => any>(
+42 |   func: T,
+43 |   wait: number
+44 | ): (...args: Parameters<T>) => void {
+45 |   let timeout: NodeJS.Timeout;
+46 |   return function executedFunction(...args: Parameters<T>) {
+47 |     const later = () => {
+48 |       clearTimeout(timeout);
+49 |       func(...args);
+50 |     };
+51 |     clearTimeout(timeout);
+52 |     timeout = setTimeout(later, wait);
+53 |   };
+54 | }
+55 | 
+56 | /**
+57 |  * Throttles a function
+58 |  */
+59 | export function throttle<T extends (...args: any[]) => any>(
+60 |   func: T,
+61 |   limit: number
+62 | ): (...args: Parameters<T>) => void {
+63 |   let inThrottle: boolean;
+64 |   return function executedFunction(...args: Parameters<T>) {
+65 |     if (!inThrottle) {
+66 |       func(...args);
+67 |       inThrottle = true;
+68 |       setTimeout(() => (inThrottle = false), limit);
+69 |     }
+70 |   };
+71 | }
+72 | 
+73 | /**
+74 |  * Validates a position object
+75 |  */
+76 | export function isValidPosition(pos: Position): boolean {
+77 |   if (
+78 |     pos != null &&
+79 |     typeof pos.x === 'number' && !isNaN(pos.x) &&
+80 |     typeof pos.y === 'number' && !isNaN(pos.y) &&
+81 |     typeof pos.z === 'number' && !isNaN(pos.z)
+82 |   ) {
+83 |     // Retain range validation
+84 |     return pos.x >= 0 && pos.x <= 100 && 
+85 |            pos.y >= 0 && pos.y <= 100 && 
+86 |            pos.z >= 0 && pos.z <= 100;
+87 |   }
+88 |   return false;
+89 | }
+```
+
+src/utils/logger.ts
+```
+1 | /**
+2 |  * Logging utility for the MMO RPG server
+3 |  */
+4 | export class Logger {
+5 |   private static instance: Logger;
+6 |   private isDevelopment: boolean;
+7 | 
+8 |   private constructor() {
+9 |     this.isDevelopment = process.env.NODE_ENV === 'development';
+10 |   }
+11 | 
+12 |   /**
+13 |    * Gets the singleton instance of the logger
+14 |    */
+15 |   public static getInstance(): Logger {
+16 |     if (!Logger.instance) {
+17 |       Logger.instance = new Logger();
+18 |     }
+19 |     return Logger.instance;
+20 |   }
+21 | 
+22 |   /**
+23 |    * Logs an info message
+24 |    */
+25 |   public info(message: string, ...args: unknown[]): void {
+26 |     console.log(`[INFO] ${message}`, ...args);
+27 |   }
+28 | 
+29 |   /**
+30 |    * Logs a warning message
+31 |    */
+32 |   public warn(message: string, ...args: unknown[]): void {
+33 |     console.warn(`[WARN] ${message}`, ...args);
+34 |   }
+35 | 
+36 |   /**
+37 |    * Logs an error message
+38 |    */
+39 |   public error(message: string, error?: Error): void {
+40 |     console.error(`[ERROR] ${message}`, error || '');
+41 |     if (error && this.isDevelopment) {
+42 |       console.error(error.stack);
+43 |     }
+44 |   }
+45 | 
+46 |   /**
+47 |    * Logs a debug message (only in development)
+48 |    */
+49 |   public debug(message: string, ...args: unknown[]): void {
+50 |     if (this.isDevelopment) {
+51 |       console.debug(`[DEBUG] ${message}`, ...args);
+52 |     }
+53 |   }
+54 | } 
+```
+
+src/wasm/proceduralGenerator.ts
+```
+1 | /// <reference lib="webassembly" />
+2 | import fs from 'fs';
+3 | import path from 'path';
+4 | import { Position } from '../interfaces';
+5 | 
+6 | /**
+7 |  * Manages procedural generation using WASM
+8 |  */
+9 | export class ProceduralGenerator {
+10 |     private instance: WebAssembly.Instance | null = null;
+11 | 
+12 |     async init(): Promise<void> {
+13 |         const wasmPath = path.resolve(__dirname, 'lobby_generator.wasm');
+14 |         const wasmBuffer = fs.readFileSync(wasmPath);
+15 |         const module = await WebAssembly.compile(wasmBuffer);
+16 |         this.instance = await WebAssembly.instantiate(module);
+17 |     }
+18 | 
+19 |     generateSpawnPoints(numPoints: number, seed: number): Position[] {
+20 |         if (!this.instance) throw new Error('WASM module not initialized');
+21 |         const buffer = new Float32Array(numPoints * 3);
+22 |         const { generate_spawn_points } = this.instance.exports as any;
+23 |         generate_spawn_points(buffer.byteOffset, numPoints, seed);
+24 |         const positions: Position[] = [];
+25 |         for (let i = 0; i < numPoints; i++) {
+26 |             positions.push({
+27 |                 x: buffer[3*i],
+28 |                 y: buffer[3*i+1],
+29 |                 z: buffer[3*i+2]
+30 |             });
+31 |         }
+32 |         return positions;
+33 |     }
+34 | } 
+```
+
+src/wasm/procedural_generator.cpp
+```
+1 | #include <cstdlib>
+2 | 
+3 | // Simple heightmap generator for lobby layouts
+4 | extern "C"
+5 | {
+6 |     void generate_heightmap(int *buffer, int size, int seed)
+7 |     {
+8 |         for (int i = 0; i < size; i++)
+9 |         {
+10 |             buffer[i] = (i * seed) % 256; // Placeholder for Perlin noise or similar
+11 |         }
+12 |     }
+13 | 
+14 |     void generate_spawn_points(float *buffer, int num_points, int seed)
+15 |     {
+16 |         srand(seed);
+17 |         for (int i = 0; i < num_points; i++)
+18 |         {
+19 |             buffer[3 * i] = static_cast<float>(rand() % 100);     // x: 0-99
+20 |             buffer[3 * i + 1] = static_cast<float>(rand() % 100); // y: 0-99
+21 |             buffer[3 * i + 2] = 0.0f;                             // z: 0 (2D plane)
+22 |         }
+23 |     }
+24 | }
+```
+
+tests/core/lobbyManager.test.ts
+```
+1 | import { LobbyManager } from '../../src/core/lobby/lobbyManager';
+2 | import { Player } from '../../src/core/game/player';
+3 | import { Position, LobbyStatus } from '../../src/interfaces';
+4 | 
+5 | describe('LobbyManager', () => {
+6 |   let lobbyManager: LobbyManager;
+7 |   let testPlayer: Player;
+8 | 
+9 |   beforeEach(() => {
+10 |     lobbyManager = new LobbyManager(2); // Max 2 players per lobby for testing
+11 |     const spawnPoint: Position = { x: 0, y: 0, z: 0 };
+12 |     testPlayer = new Player('test_player', spawnPoint);
+13 |   });
+14 | 
+15 |   describe('createLobby', () => {
+16 |     it('should create a new lobby with correct initial state', () => {
+17 |       const lobbyId = lobbyManager.createLobby();
+18 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+19 | 
+20 |       expect(lobby).toBeDefined();
+21 |       expect(lobby?.id).toBe(lobbyId);
+22 |       expect(lobby?.players.size).toBe(0);
+23 |       expect(lobby?.maxPlayers).toBe(2);
+24 |     });
+25 |   });
+26 | 
+27 |   describe('joinLobby', () => {
+28 |     it('should add player to an existing lobby if space available', () => {
+29 |       const lobbyId = lobbyManager.createLobby();
+30 |       const result = lobbyManager.joinLobby(testPlayer);
+31 | 
+32 |       expect(result).toBe(lobbyId);
+33 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+34 |       expect(lobby?.players.get(testPlayer.id)).toBe(testPlayer);
+35 |     });
+36 | 
+37 |     it('should create new lobby if no space in existing lobbies', () => {
+38 |       const lobbyId = lobbyManager.createLobby();
+39 |       const player1 = new Player('player1', { x: 0, y: 0, z: 0 });
+40 |       const player2 = new Player('player2', { x: 0, y: 0, z: 0 });
+41 |       const player3 = new Player('player3', { x: 0, y: 0, z: 0 });
+42 | 
+43 |       lobbyManager.joinLobby(player1);
+44 |       lobbyManager.joinLobby(player2);
+45 |       const newLobbyId = lobbyManager.joinLobby(player3);
+46 | 
+47 |       expect(newLobbyId).not.toBe(lobbyId);
+48 |       const newLobby = lobbyManager.getLobbyState(newLobbyId);
+49 |       expect(newLobby?.players.get(player3.id)).toBe(player3);
+50 |     });
+51 |   });
+52 | 
+53 |   describe('leaveLobby', () => {
+54 |     it('should remove player from lobby', () => {
+55 |       const testPlayer = { id: 'player1', position: { x: 0, y: 0, z: 0 }, health: 100, level: 1, inventory: [] };
+56 |       const lobbyId = lobbyManager.joinLobby(testPlayer);
+57 |       lobbyManager.leaveLobby(testPlayer.id, lobbyId);
+58 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+59 |       expect(lobby?.players.has(testPlayer.id) || false).toBe(false);
+60 |     });
+61 | 
+62 |     it('should delete empty lobby', () => {
+63 |       const lobbyId = lobbyManager.createLobby();
+64 |       lobbyManager.joinLobby(testPlayer);
+65 |       lobbyManager.leaveLobby(testPlayer.id, lobbyId);
+66 | 
+67 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+68 |       expect(lobby).toBeUndefined();
+69 |     });
+70 |   });
+71 | 
+72 |   describe('updateLobbyStatus', () => {
+73 |     it('should update lobby status', () => {
+74 |       const lobbyId = lobbyManager.createLobby();
+75 |       lobbyManager.updateLobbyStatus(lobbyId, LobbyStatus.IN_PROGRESS);
+76 | 
+77 |       const lobby = lobbyManager.getLobbyState(lobbyId);
+78 |       expect(lobby?.status).toBe(LobbyStatus.IN_PROGRESS);
+79 |     });
+80 |   });
+81 | 
+82 |   describe('getActiveLobbies', () => {
+83 |     it('should return all active lobbies', () => {
+84 |       const lobby1Id = lobbyManager.createLobby();
+85 |       const lobby2Id = lobbyManager.createLobby();
+86 |       const activeLobbies = lobbyManager.getActiveLobbies();
+87 | 
+88 |       expect(activeLobbies.length).toBe(2);
+89 |       expect(activeLobbies.map(l => l.id)).toContain(lobby1Id);
+90 |       expect(activeLobbies.map(l => l.id)).toContain(lobby2Id);
+91 |     });
+92 |   });
+93 | }); 
+```
+
+tests/core/player.test.ts
+```
+1 | import { Player } from '../../src/core/game/player';
+2 | import { Position, Item, ItemType } from '../../src/interfaces';
+3 | 
+4 | describe('Player', () => {
+5 |   let player: Player;
+6 |   const spawnPoint: Position = { x: 0, y: 0, z: 0 };
+7 | 
+8 |   beforeEach(() => {
+9 |     player = new Player('test_player', spawnPoint);
+10 |   });
+11 | 
+12 |   describe('constructor', () => {
+13 |     it('should initialize player with correct default values', () => {
+14 |       expect(player.id).toBe('test_player');
+15 |       expect(player.position).toEqual(spawnPoint);
+16 |       expect(player.health).toBe(100);
+17 |       expect(player.level).toBe(1);
+18 |       expect(player.inventory).toEqual([]);
+19 |     });
+20 |   });
+21 | 
+22 |   describe('move', () => {
+23 |     it('should update player position', () => {
+24 |       const newPosition: Position = { x: 10, y: 20, z: 30 };
+25 |       player.move(newPosition);
+26 |       expect(player.position).toEqual(newPosition);
+27 |     });
+28 |   });
+29 | 
+30 |   describe('inventory management', () => {
+31 |     const testItem: Item = {
+32 |       id: 'test_item',
+33 |       name: 'Test Item',
+34 |       type: ItemType.WEAPON,
+35 |       stats: { damage: 10 }
+36 |     };
+37 | 
+38 |     it('should add item to inventory', () => {
+39 |       player.addItem(testItem);
+40 |       expect(player.inventory).toContain(testItem);
+41 |     });
+42 | 
+43 |     it('should remove item from inventory', () => {
+44 |       player.addItem(testItem);
+45 |       const removedItem = player.removeItem(testItem.id);
+46 |       expect(removedItem).toEqual(testItem);
+47 |       expect(player.inventory).not.toContain(testItem);
+48 |     });
+49 | 
+50 |     it('should return undefined when removing non-existent item', () => {
+51 |       const removedItem = player.removeItem('non_existent');
+52 |       expect(removedItem).toBeUndefined();
+53 |     });
+54 |   });
+55 | 
+56 |   describe('combat', () => {
+57 |     it('should take damage and reduce health', () => {
+58 |       player.takeDamage(30);
+59 |       expect(player.health).toBe(70);
+60 |     });
+61 | 
+62 |     it('should not reduce health below 0', () => {
+63 |       player.takeDamage(150);
+64 |       expect(player.health).toBe(0);
+65 |     });
+66 | 
+67 |     it('should heal and increase health', () => {
+68 |       player.takeDamage(50);
+69 |       player.heal(30);
+70 |       expect(player.health).toBe(80);
+71 |     });
+72 | 
+73 |     it('should not increase health above 100', () => {
+74 |       player.heal(50);
+75 |       expect(player.health).toBe(100);
+76 |     });
+77 |   });
+78 | 
+79 |   describe('leveling', () => {
+80 |     it('should increase level', () => {
+81 |       player.levelUp();
+82 |       expect(player.level).toBe(2);
+83 |     });
+84 | 
+85 |     it('should reset health on level up', () => {
+86 |       player.takeDamage(50);
+87 |       player.levelUp();
+88 |       expect(player.health).toBe(100);
+89 |     });
+90 |   });
+91 | 
+92 |   describe('isAlive', () => {
+93 |     it('should return true when health is above 0', () => {
+94 |       expect(player.isAlive()).toBe(true);
+95 |     });
+96 | 
+97 |     it('should return false when health is 0', () => {
+98 |       player.takeDamage(100);
+99 |       expect(player.isAlive()).toBe(false);
+100 |     });
+101 |   });
+102 | }); 
+```
+
+tests/core/world.test.ts
+```
+1 | import { World } from '../../src/core/game/world';
+2 | import { Position, Region, Entity, EntityType } from '../../src/interfaces';
+3 | 
+4 | describe('World', () => {
+5 |   let world: World;
+6 |   const spawnPoints: Position[] = [
+7 |     { x: 0, y: 0, z: 0 },
+8 |     { x: 100, y: 100, z: 0 }
+9 |   ];
+10 | 
+11 |   beforeEach(() => {
+12 |     world = new World('test_world', 'Test World', spawnPoints);
+13 |   });
+14 | 
+15 |   describe('constructor', () => {
+16 |     it('should initialize world with correct values', () => {
+17 |       expect(world.id).toBe('test_world');
+18 |       expect(world.name).toBe('Test World');
+19 |       expect(world.regions).toEqual([]);
+20 |       expect(world.spawnPoints).toEqual(spawnPoints);
+21 |     });
+22 |   });
+23 | 
+24 |   describe('getRandomSpawnPoint', () => {
+25 |     it('should return a valid spawn point', () => {
+26 |       const spawnPoint = world.getRandomSpawnPoint();
+27 |       expect(spawnPoints).toContainEqual(spawnPoint);
+28 |     });
+29 |   });
+30 | 
+31 |   describe('region management', () => {
+32 |     const testRegion: Region = {
+33 |       id: 'test_region',
+34 |       name: 'Test Region',
+35 |       bounds: {
+36 |         minX: 0,
+37 |         maxX: 100,
+38 |         minY: 0,
+39 |         maxY: 100,
+40 |         minZ: 0,
+41 |         maxZ: 100
+42 |       },
+43 |       entities: []
+44 |     };
+45 | 
+46 |     it('should add region to world', () => {
+47 |       world.addRegion(testRegion);
+48 |       expect(world.regions).toContain(testRegion);
+49 |     });
+50 | 
+51 |     it('should find region containing position', () => {
+52 |       world.addRegion(testRegion);
+53 |       const position: Position = { x: 50, y: 50, z: 50 };
+54 |       const foundRegion = world.getRegionAtPosition(position);
+55 |       expect(foundRegion).toEqual(testRegion);
+56 |     });
+57 | 
+58 |     it('should return undefined for position outside all regions', () => {
+59 |       world.addRegion(testRegion);
+60 |       const position: Position = { x: 200, y: 200, z: 200 };
+61 |       const foundRegion = world.getRegionAtPosition(position);
+62 |       expect(foundRegion).toBeUndefined();
+63 |     });
+64 |   });
+65 | 
+66 |   describe('entity management', () => {
+67 |     let world: World;
+68 |     let testEntity: Entity;
+69 | 
+70 |     beforeEach(() => {
+71 |       world = new World('world1', 'Test World', []);
+72 |       // Region 1: 0-49
+73 |       world.addRegion({
+74 |         id: 'region1',
+75 |         name: 'Region 1',
+76 |         bounds: { minX: 0, maxX: 49, minY: 0, maxY: 49, minZ: 0, maxZ: 49 },
+77 |         entities: [],
+78 |       });
+79 |       // Region 2: 50-99
+80 |       world.addRegion({
+81 |         id: 'region2',
+82 |         name: 'Region 2',
+83 |         bounds: { minX: 50, maxX: 99, minY: 50, maxY: 99, minZ: 50, maxZ: 99 },
+84 |         entities: [],
+85 |       });
+86 |       testEntity = {
+87 |         id: 'test_entity',
+88 |         position: { x: 25, y: 25, z: 25 }, // Clearly in region1
+89 |         type: EntityType.PLAYER,
+90 |         health: 100,
+91 |       };
+92 |     });
+93 | 
+94 |     it('should remove entity from region', () => {
+95 |       world.addEntity(testEntity);
+96 |       world.removeEntity(testEntity.id);
+97 |       const region = world.getRegionAtPosition(testEntity.position);
+98 |       expect(region?.entities).not.toContain(testEntity);
+99 |     });
+100 | 
+101 |     it('should update entity position and move between regions', () => {
+102 |       world.addEntity(testEntity);
+103 |       const oldRegion = world.getRegionAtPosition({ x: 25, y: 25, z: 25 }); // region1
+104 |       world.updateEntityPosition(testEntity.id, { x: 75, y: 75, z: 75 }); // Moves to region2
+105 |       const newRegion = world.getRegionAtPosition({ x: 75, y: 75, z: 75 }); // region2
+106 |       expect(oldRegion?.entities).not.toContain(testEntity);
+107 |       expect(newRegion?.entities).toContain(testEntity);
+108 |       expect(testEntity.position).toEqual({ x: 75, y: 75, z: 75 });
+109 |     });
+110 |   });
+111 | }); 
+```
+
+tests/utils/helpers.test.ts
+```
+1 | import {
+2 |   generateId,
+3 |   calculateDistance,
+4 |   isInRange,
+5 |   deepClone,
+6 |   debounce,
+7 |   throttle,
+8 |   isValidPosition
+9 | } from '../../src/utils/helpers';
+10 | import { Position } from '../../src/interfaces';
+11 | 
+12 | describe('Helper Utilities', () => {
+13 |   describe('generateId', () => {
+14 |     it('should generate unique IDs', () => {
+15 |       const id1 = generateId();
+16 |       const id2 = generateId();
+17 |       expect(id1).not.toBe(id2);
+18 |     });
+19 | 
+20 |     it('should include prefix if provided', () => {
+21 |       const id = generateId('test_');
+22 |       expect(id.startsWith('test_')).toBe(true);
+23 |     });
+24 |   });
+25 | 
+26 |   describe('calculateDistance', () => {
+27 |     it('should calculate correct distance between points', () => {
+28 |       const pos1: Position = { x: 0, y: 0, z: 0 };
+29 |       const pos2: Position = { x: 3, y: 4, z: 0 };
+30 |       const distance = calculateDistance(pos1, pos2);
+31 |       expect(distance).toBe(5); // 3-4-5 triangle
+32 |     });
+33 | 
+34 |     it('should handle 3D distances', () => {
+35 |       const pos1: Position = { x: 0, y: 0, z: 0 };
+36 |       const pos2: Position = { x: 1, y: 1, z: 1 };
+37 |       const distance = calculateDistance(pos1, pos2);
+38 |       expect(distance).toBe(Math.sqrt(3));
+39 |     });
+40 |   });
+41 | 
+42 |   describe('isInRange', () => {
+43 |     it('should return true when point is within range', () => {
+44 |       const pos1: Position = { x: 0, y: 0, z: 0 };
+45 |       const pos2: Position = { x: 3, y: 4, z: 0 };
+46 |       expect(isInRange(pos1, pos2, 5)).toBe(true);
+47 |     });
+48 | 
+49 |     it('should return false when point is outside range', () => {
+50 |       const pos1: Position = { x: 0, y: 0, z: 0 };
+51 |       const pos2: Position = { x: 3, y: 4, z: 0 };
+52 |       expect(isInRange(pos1, pos2, 4)).toBe(false);
+53 |     });
+54 |   });
+55 | 
+56 |   describe('deepClone', () => {
+57 |     it('should create a deep copy of an object', () => {
+58 |       const original = {
+59 |         a: 1,
+60 |         b: { c: 2 },
+61 |         d: [1, 2, 3]
+62 |       };
+63 |       const cloned = deepClone(original);
+64 |       expect(cloned).toEqual(original);
+65 |       expect(cloned).not.toBe(original);
+66 |       expect(cloned.b).not.toBe(original.b);
+67 |       expect(cloned.d).not.toBe(original.d);
+68 |     });
+69 |   });
+70 | 
+71 |   describe('debounce', () => {
+72 |     it('should debounce function calls', (done) => {
+73 |       let callCount = 0;
+74 |       const debouncedFn = debounce(() => {
+75 |         callCount++;
+76 |       }, 100);
+77 | 
+78 |       debouncedFn();
+79 |       debouncedFn();
+80 |       debouncedFn();
+81 | 
+82 |       expect(callCount).toBe(0);
+83 | 
+84 |       setTimeout(() => {
+85 |         expect(callCount).toBe(1);
+86 |         done();
+87 |       }, 150);
+88 |     });
+89 |   });
+90 | 
+91 |   describe('throttle', () => {
+92 |     it('should throttle function calls', (done) => {
+93 |       let callCount = 0;
+94 |       const throttledFn = throttle(() => {
+95 |         callCount++;
+96 |       }, 100);
+97 | 
+98 |       throttledFn();
+99 |       throttledFn();
+100 |       throttledFn();
+101 | 
+102 |       expect(callCount).toBe(1);
+103 | 
+104 |       setTimeout(() => {
+105 |         throttledFn();
+106 |         expect(callCount).toBe(2);
+107 |         done();
+108 |       }, 150);
+109 |     });
+110 |   });
+111 | 
+112 |   describe('isValidPosition', () => {
+113 |     it('should reject invalid position objects', () => {
+114 |       const invalidPositions = [
+115 |         { x: 1, y: 2 }, // Missing z
+116 |         { x: '1', y: 2, z: 3 }, // x is string
+117 |         { x: 1, y: null, z: 3 }, // y is null
+118 |         null, // Null object
+119 |         { x: NaN, y: 2, z: 3 }, // x is NaN (if required)
+120 |       ];
+121 |       invalidPositions.forEach(pos => {
+122 |         expect(isValidPosition(pos as Position)).toBe(false);
+123 |       });
+124 |     });
+125 |   });
+126 | }); 
+```
+
+src/core/game/player.ts
+```
+1 | import { Player as IPlayer, Position, Item } from '../../interfaces';
+2 | 
+3 | /**
+4 |  * Represents a player in the game
+5 |  */
+6 | export class Player implements IPlayer {
+7 |   public readonly id: string;
+8 |   public position: Position;
+9 |   public health: number;
+10 |   public level: number;
+11 |   public inventory: Item[];
+12 | 
+13 |   constructor(id: string, position: Position) {
+14 |     this.id = id;
+15 |     this.position = position;
+16 |     this.health = 100;
+17 |     this.level = 1;
+18 |     this.inventory = [];
+19 |   }
+20 | 
+21 |   /**
+22 |    * Moves the player to a new position
+23 |    */
+24 |   move(newPosition: Position): void {
+25 |     this.position = newPosition;
+26 |   }
+27 | 
+28 |   /**
+29 |    * Adds an item to the player's inventory
+30 |    */
+31 |   addItem(item: Item): void {
+32 |     this.inventory.push(item);
+33 |   }
+34 | 
+35 |   /**
+36 |    * Removes an item from the player's inventory
+37 |    */
+38 |   removeItem(itemId: string): Item | undefined {
+39 |     const index = this.inventory.findIndex(item => item.id === itemId);
+40 |     if (index !== -1) {
+41 |       return this.inventory.splice(index, 1)[0];
+42 |     }
+43 |     return undefined;
+44 |   }
+45 | 
+46 |   /**
+47 |    * Applies damage to the player
+48 |    */
+49 |   takeDamage(amount: number): void {
+50 |     this.health = Math.max(0, this.health - amount);
+51 |   }
+52 | 
+53 |   /**
+54 |    * Heals the player
+55 |    */
+56 |   heal(amount: number): void {
+57 |     this.health = Math.min(100, this.health + amount);
+58 |   }
+59 | 
+60 |   /**
+61 |    * Levels up the player
+62 |    */
+63 |   levelUp(): void {
+64 |     this.level++;
+65 |     this.health = 100; // Reset health on level up
+66 |   }
+67 | 
+68 |   /**
+69 |    * Checks if the player is alive
+70 |    */
+71 |   isAlive(): boolean {
+72 |     return this.health > 0;
+73 |   }
+74 | } 
+```
+
+src/core/game/world.ts
+```
+1 | import { World as IWorld, Region, Position, Entity, EntityType } from '../../interfaces';
+2 | 
+3 | /**
+4 |  * Represents the game world with regions and entities
+5 |  */
+6 | export class World implements IWorld {
+7 |   public readonly id: string;
+8 |   public readonly name: string;
+9 |   public readonly regions: Region[];
+10 |   public readonly spawnPoints: Position[];
+11 | 
+12 |   constructor(id: string, name: string, spawnPoints: Position[]) {
+13 |     this.id = id;
+14 |     this.name = name;
+15 |     this.regions = [];
+16 |     this.spawnPoints = spawnPoints;
+17 |   }
+18 | 
+19 |   /**
+20 |    * Adds a new region to the world
+21 |    */
+22 |   addRegion(region: Region): void {
+23 |     this.regions.push(region);
+24 |   }
+25 | 
+26 |   /**
+27 |    * Gets a random spawn point
+28 |    */
+29 |   getRandomSpawnPoint(): Position {
+30 |     const index = Math.floor(Math.random() * this.spawnPoints.length);
+31 |     return this.spawnPoints[index];
+32 |   }
+33 | 
+34 |   /**
+35 |    * Finds the region containing a given position
+36 |    */
+37 |   getRegionAtPosition(position: Position): Region | undefined {
+38 |     return this.regions.find(region => this.isPositionInRegion(position, region));
+39 |   }
+40 | 
+41 |   /**
+42 |    * Checks if a position is within a region's bounds
+43 |    */
+44 |   private isPositionInRegion(position: Position, region: Region): boolean {
+45 |     const { bounds } = region;
+46 |     return (
+47 |       position.x >= bounds.minX &&
+48 |       position.x <= bounds.maxX &&
+49 |       position.y >= bounds.minY &&
+50 |       position.y <= bounds.maxY &&
+51 |       position.z >= bounds.minZ &&
+52 |       position.z <= bounds.maxZ
+53 |     );
+54 |   }
+55 | 
+56 |   /**
+57 |    * Adds an entity to the appropriate region
+58 |    */
+59 |   addEntity(entity: Entity): void {
+60 |     const region = this.getRegionAtPosition(entity.position);
+61 |     if (region) {
+62 |       region.entities.push(entity);
+63 |     }
+64 |   }
+65 | 
+66 |   /**
+67 |    * Removes an entity from its region
+68 |    */
+69 |   removeEntity(entityId: string): void {
+70 |     for (const region of this.regions) {
+71 |       const index = region.entities.findIndex((e: Entity) => e.id === entityId);
+72 |       if (index !== -1) {
+73 |         region.entities.splice(index, 1);
+74 |         break;
+75 |       }
+76 |     }
+77 |   }
+78 | 
+79 |   /**
+80 |    * Gets all entities of a specific type in a region
+81 |    */
+82 |   getEntitiesByType(regionId: string, type: EntityType): Entity[] {
+83 |     const region = this.regions.find((r: Region) => r.id === regionId);
+84 |     return region ? region.entities.filter((e: Entity) => e.type === type) : [];
+85 |   }
+86 | 
+87 |   /**
+88 |    * Updates an entity's position and moves it to the appropriate region if needed
+89 |    */
+90 |   updateEntityPosition(entityId: string, newPosition: Position): void {
+91 |     const oldRegion = this.regions.find((region: Region) =>
+92 |       region.entities.some((e: Entity) => e.id === entityId)
+93 |     );
+94 | 
+95 |     if (oldRegion) {
+96 |       const entity = oldRegion.entities.find((e: Entity) => e.id === entityId);
+97 |       if (entity) {
+98 |         entity.position = newPosition;
+99 |         const newRegion = this.getRegionAtPosition(newPosition);
+100 |         if (newRegion && newRegion.id !== oldRegion.id) {
+101 |           // Move entity to new region
+102 |           oldRegion.entities = oldRegion.entities.filter((e: Entity) => e.id !== entityId);
+103 |           newRegion.entities.push(entity);
+104 |         }
+105 |       }
+106 |     }
+107 |   }
+108 | } 
+```
+
+src/core/lobby/lobbyManager.ts
+```
+1 | import { Worker } from 'worker_threads';
+2 | import path from 'path';
+3 | import { Lobby, LobbyStatus } from '../../interfaces';
+4 | import { World } from '../game/world';
+5 | import { Player } from '../game/player';
+6 | import { ProceduralGenerator } from '../../wasm/proceduralGenerator';
+7 | 
+8 | /**
+9 |  * Manages game lobbies and player assignments
+10 |  */
+11 | export class LobbyManager {
+12 |   private readonly lobbies: Map<string, Lobby>;
+13 |   private readonly maxPlayersPerLobby: number;
+14 |   private readonly proceduralGenerator: ProceduralGenerator;
+15 | 
+16 |   constructor(maxPlayersPerLobby: number = 50, proceduralGenerator: ProceduralGenerator) {
+17 |     this.lobbies = new Map();
+18 |     this.maxPlayersPerLobby = maxPlayersPerLobby;
+19 |     this.proceduralGenerator = proceduralGenerator;
+20 |   }
+21 | 
+22 |   /**
+23 |    * Creates a new lobby
+24 |    */
+25 |   createLobby(): string {
+26 |     const id = `lobby_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+27 |     const spawnPoints = this.proceduralGenerator.generateSpawnPoints(10, Date.now());
+28 |     const world = new World(id, `World for ${id}`, spawnPoints);
+29 |     const sharedBuffer = new SharedArrayBuffer(this.maxPlayersPerLobby * 3 * 4);
+30 |     const playerPositions = new Float32Array(sharedBuffer);
+31 |     const worker = new Worker(path.resolve(__dirname, 'lobbyWorker.ts'), {
+32 |       workerData: { lobbyId: id, sharedBuffer }
+33 |     });
+34 |     
+35 |     this.lobbies.set(id, {
+36 |       id,
+37 |       world,
+38 |       players: new Map(),
+39 |       maxPlayers: this.maxPlayersPerLobby,
+40 |       status: LobbyStatus.WAITING,
+41 |       worker,
+42 |       playerPositions,
+43 |       playerIndex: new Map(),
+44 |       nextPlayerIndex: 0
+45 |     });
+46 |     return id;
+47 |   }
+48 | 
+49 |   /**
+50 |    * Assigns a player to an available lobby
+51 |    */
+52 |   joinLobby(player: Player): string {
+53 |     let lobby: Lobby | undefined;
+54 |     for (const [, l] of this.lobbies) {
+55 |       if (l.players.size < this.maxPlayersPerLobby && l.status === LobbyStatus.WAITING) {
+56 |         lobby = l;
+57 |         break;
+58 |       }
+59 |     }
+60 |     if (!lobby) {
+61 |       const newLobbyId = this.createLobby();
+62 |       lobby = this.lobbies.get(newLobbyId)!;
+63 |     }
+64 |     const index = lobby.nextPlayerIndex++;
+65 |     lobby.players.set(player.id, player);
+66 |     lobby.playerIndex.set(player.id, index);
+67 |     const spawnPoint = lobby.world.getRandomSpawnPoint();
+68 |     player.move(spawnPoint);
+69 |     lobby.playerPositions[3*index] = spawnPoint.x;
+70 |     lobby.playerPositions[3*index+1] = spawnPoint.y;
+71 |     lobby.playerPositions[3*index+2] = spawnPoint.z;
+72 |     return lobby.id;
+73 |   }
+74 | 
+75 |   /**
+76 |    * Removes a player from their lobby
+77 |    */
+78 |   leaveLobby(playerId: string, lobbyId: string): void {
+79 |     const lobby = this.lobbies.get(lobbyId);
+80 |     if (lobby) {
+81 |       lobby.players.delete(playerId);
+82 |       lobby.playerIndex.delete(playerId);
+83 |       if (lobby.players.size === 0) {
+84 |         lobby.worker.terminate();
+85 |         this.lobbies.delete(lobbyId);
+86 |       }
+87 |     }
+88 |   }
+89 | 
+90 |   /**
+91 |    * Gets the current state of a lobby
+92 |    */
+93 |   getLobbyState(lobbyId: string): Lobby | undefined {
+94 |     return this.lobbies.get(lobbyId);
+95 |   }
+96 | 
+97 |   /**
+98 |    * Updates the status of a lobby
+99 |    */
+100 |   updateLobbyStatus(lobbyId: string, status: LobbyStatus): void {
+101 |     const lobby = this.lobbies.get(lobbyId);
+102 |     if (lobby) {
+103 |       lobby.status = status;
+104 |     }
+105 |   }
+106 | 
+107 |   /**
+108 |    * Gets all active lobbies
+109 |    */
+110 |   getActiveLobbies(): Lobby[] {
+111 |     return Array.from(this.lobbies.values());
+112 |   }
+113 | } 
+```
+
+src/core/lobby/lobbyWorker.ts
+```
+1 | import { parentPort, workerData } from 'worker_threads';
+2 | 
+3 | /**
+4 |  * Worker thread for managing lobby game logic
+5 |  */
+6 | const { lobbyId, sharedBuffer } = workerData;
+7 | const playerPositions = new Float32Array(sharedBuffer);
+8 | 
+9 | if (!parentPort) throw new Error('This module must be run as a worker thread');
+10 | 
+11 | parentPort.on('message', (msg) => {
+12 |     if (msg.type === 'MOVE') {
+13 |         const { index, data: { direction } } = msg;
+14 |         playerPositions[3*index] += direction.dx;
+15 |         playerPositions[3*index+1] += direction.dy;
+16 |         playerPositions[3*index+2] += direction.dz;
+17 | 
+18 |         // Ensure positions stay within bounds (0-99)
+19 |         playerPositions[3*index] = Math.max(0, Math.min(99, playerPositions[3*index]));
+20 |         playerPositions[3*index+1] = Math.max(0, Math.min(99, playerPositions[3*index+1]));
+21 |         playerPositions[3*index+2] = Math.max(0, Math.min(99, playerPositions[3*index+2]));
+22 |     }
+23 | }); 
+```
